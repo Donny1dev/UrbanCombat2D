@@ -14,6 +14,11 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } }
 };
 
+// ---------- persistent settings ----------
+const Settings = Object.assign({ volume: 0.8, shake: 1, dmgNums: true, comic: true }, store.get('uc_settings', {}));
+Settings.save = () => store.set('uc_settings', { volume: Settings.volume, shake: Settings.shake, dmgNums: Settings.dmgNums, comic: Settings.comic });
+const reducedMotion = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })();
+
 // ---------- canvas ----------
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d', { alpha: false });
@@ -47,6 +52,8 @@ const GLOW = {
   gold: makeGlow('rgba(255,210,70,1)'),
   green: makeGlow('rgba(90,255,150,1)'),
   violet: makeGlow('rgba(170,120,255,1)'),
+  ice: makeGlow('rgba(150,220,255,1)'),
+  magenta: makeGlow('rgba(255,80,220,1)'),
   warm: makeGlow('rgba(255,200,130,1)', 256),
   cool: makeGlow('rgba(140,190,255,1)', 256),
 };
@@ -85,7 +92,7 @@ const Sound = (() => {
       ac = new (window.AudioContext || window.webkitAudioContext)();
       comp = ac.createDynamicsCompressor();
       comp.threshold.value = -16; comp.ratio.value = 6;
-      master = ac.createGain(); master.gain.value = muted ? 0 : 0.42;
+      master = ac.createGain(); master.gain.value = muted ? 0 : 0.42 * Settings.volume;
       master.connect(comp); comp.connect(ac.destination);
       noiseBuf = ac.createBuffer(1, ac.sampleRate * 1.5, ac.sampleRate);
       const d = noiseBuf.getChannelData(0);
@@ -131,7 +138,7 @@ const Sound = (() => {
     get muted() { return muted; },
     toggle() {
       muted = !muted; store.set('uc_muted', muted);
-      if (master) master.gain.setTargetAtTime(muted ? 0 : 0.42, ac.currentTime, 0.02);
+      if (master) master.gain.setTargetAtTime(muted ? 0 : 0.42 * Settings.volume, ac.currentTime, 0.02);
       return muted;
     },
     shoot(kind, evolved) {
@@ -196,6 +203,32 @@ const Sound = (() => {
     },
     wave() { if (!ok('wave', 0.5)) return; const t = ac.currentTime; tone(t, 'sawtooth', 110, 110, 0.5, 0.14, 0.05); tone(t + 0.25, 'sawtooth', 147, 147, 0.6, 0.14, 0.05); },
     boss() { if (!ok('bossw', 1)) return; const t = ac.currentTime; for (let i = 0; i < 3; i++) { tone(t + i * 0.35, 'sawtooth', 90, 70, 0.3, 0.3, 0.01); noise(t + i * 0.35, 0.25, 'lowpass', 600, 80, 0.4); } },
+    setVolume(v) { Settings.volume = v; Settings.save(); if (master && !muted) master.gain.setTargetAtTime(0.42 * v, ac.currentTime, 0.02); },
+    synergy() {
+      if (!ok('syn', 0.3)) return; const t = ac.currentTime;
+      [659, 880, 1175, 1568].forEach((f, i) => { tone(t + i * 0.06, 'triangle', f, f * 1.01, 0.28, 0.12); tone(t + i * 0.06, 'sine', f / 2, f / 2, 0.3, 0.08); });
+      noise(t, 0.5, 'bandpass', 2000, 8000, 0.08, 3);
+    },
+    evolve() {
+      if (!ok('evo', 0.5)) return; const t = ac.currentTime;
+      tone(t, 'sawtooth', 80, 640, 0.6, 0.18, 0.02); noise(t, 0.6, 'bandpass', 300, 6000, 0.2, 2);
+      [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => tone(t + 0.45 + i * 0.07, 'square', f, f, 0.35, 0.09));
+      tone(t + 0.45, 'sine', 65, 40, 0.8, 0.5);
+    },
+    lock() { if (!ok('lock', 0.08)) return; const t = ac.currentTime; tone(t, 'square', 600, 300, 0.05, 0.1); noise(t, 0.04, 'highpass', 5000, 3000, 0.15); tone(t + 0.05, 'square', 1200, 1200, 0.04, 0.06); },
+    reroll() { if (!ok('reroll', 0.1)) return; const t = ac.currentTime; for (let i = 0; i < 6; i++) tone(t + i * 0.03, 'square', 400 + i * 160, 500 + i * 160, 0.03, 0.06); },
+    hover() { if (!ok('hover', 0.04)) return; const t = ac.currentTime; tone(t, 'sine', 1400, 1700, 0.03, 0.04); },
+    confirm() { if (!ok('confirm', 0.1)) return; const t = ac.currentTime; tone(t, 'square', 523, 523, 0.06, 0.08); tone(t + 0.06, 'square', 784, 784, 0.1, 0.08); noise(t, 0.15, 'bandpass', 1500, 4000, 0.08, 2); },
+    event() { if (!ok('event', 1)) return; const t = ac.currentTime; for (let i = 0; i < 2; i++) { tone(t + i * 0.3, 'square', 880, 660, 0.25, 0.1); tone(t + i * 0.3, 'square', 440, 330, 0.25, 0.06); } },
+    heal() { if (!ok('heal', 0.15)) return; const t = ac.currentTime; [523, 784, 1047].forEach((f, i) => tone(t + i * 0.05, 'sine', f, f * 1.02, 0.18, 0.12)); },
+    shield() { if (!ok('shield', 0.1)) return; const t = ac.currentTime; tone(t, 'triangle', 1800, 900, 0.1, 0.1); },
+    streak(n) { if (!ok('streak', 0.4)) return; const t = ac.currentTime; tone(t, 'sawtooth', 110, 220, 0.4, 0.2, 0.01); [392, 523, 659, 784].slice(0, 2 + Math.min(2, n)).forEach((f, i) => tone(t + i * 0.08, 'square', f, f, 0.2, 0.1)); },
+    freeze() { if (!ok('freeze', 0.08)) return; const t = ac.currentTime; noise(t, 0.2, 'highpass', 7000, 4000, 0.15); tone(t, 'sine', 2600, 3200, 0.12, 0.05); },
+    burn() { if (!ok('burn', 0.15)) return; const t = ac.currentTime; noise(t, 0.25, 'bandpass', 600, 1500, 0.12, 0.8); },
+    ambience() {
+      if (!ac || muted) return; const t = ac.currentTime;
+      noise(t, 4, 'lowpass', 400, 200, 0.12); tone(t + 1, 'sine', 55, 52, 3, 0.05, 0.5);
+    },
     die() { if (!ok('die', 1)) return; const t = ac.currentTime; tone(t, 'sawtooth', 400, 40, 1.2, 0.35); noise(t, 0.9, 'lowpass', 2000, 60, 0.5); },
   };
 })();

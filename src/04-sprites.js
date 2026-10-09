@@ -1,6 +1,6 @@
-// ===================== SPRITES: programmatic characters, weapons, icons =====================
+// ===================== SPRITES: layered programmatic characters + weapons =====================
 const OUTLINE = '#0b0b0f';
-const GUN_SHAPES = {   // length, thickness, grip offset
+const GUN_SHAPES = {   // length, thickness
   pistol: [13, 5], smg: [18, 6], rifle: [28, 5], shotgun: [25, 7], dual: [12, 5], heavy: [34, 7],
 };
 function drawGun(g, kind, x, y, flash, evolved) {
@@ -14,38 +14,60 @@ function drawGun(g, kind, x, y, flash, evolved) {
     if (kind === 'smg' || kind === 'rifle') { g.fillStyle = '#1c1d22'; g.fillRect(x + len * 0.35, y + th / 2 - 1, 4, 6); }
     if (kind === 'heavy') { g.fillStyle = '#2b2e38'; g.fillRect(x + 8, y - th / 2 - 3, 10, 3); }
     if (kind === 'shotgun') { g.fillStyle = '#6b4a2e'; g.fillRect(x + len * 0.45, y - th / 2, 7, th); }
+    if (evolved) { g.fillStyle = 'rgba(255,201,60,0.8)'; g.fillRect(x + len - 3, y - th / 2, 3, th); }
   }
 }
-const SKIN = ['#f1c6a0', '#d9a074', '#a86b45', '#7a4a2c', '#ffd9b8'];
-// opts: a (facing), phase, scale, jacket, skin, hair, style, weapon, flash, recoil, sx, sy (squash), swing (0..1), glow
+const SKIN = ['#f1c6a0', '#d9a074', '#a86b45', '#7a4a2c', '#ffd9b8', '#5a3620'];
+const BUILDS = { slim: [8, 12.5], normal: [9, 14], broad: [10.5, 15.5] };
+
+// Options (all optional): a, phase, moving, scale, sx, sy, flash, recoil, altRecoil, evolved, swing, weapon,
+// jacket, skin, hair, style, vest, eyes, build, top, pants, shorts, boots, gloves, mask, maskCol, glasses,
+// backpack, pads, accent
 function drawHuman(g, x, y, o) {
   const s = o.scale || 1, fl = o.flash;
-  // drop shadow
+  const [trx, try_] = BUILDS[o.build] || BUILDS.normal;
   g.fillStyle = 'rgba(0,0,0,0.33)';
-  g.beginPath(); g.ellipse(x + 4 * s, y + 6 * s, 15 * s, 12 * s, 0, 0, TAU); g.fill();
+  g.beginPath(); g.ellipse(x + 4 * s, y + 6 * s, (trx + 6) * s, (try_ - 2) * s, 0, 0, TAU); g.fill();
   g.save();
   g.translate(x, y); g.rotate(o.a);
   g.scale(s * (o.sx || 1), s * (o.sy || 1));
   g.lineJoin = 'round'; g.lineCap = 'round';
+  const W = c => fl ? '#ffffff' : c;
+  const jacket = W(o.jacket), skin = W(o.skin || SKIN[0]);
+  const hand = W(o.gloves || o.skin || SKIN[0]);
   const step = Math.sin(o.phase || 0) * 7 * (o.moving ? 1 : 0);
-  // feet
-  g.fillStyle = fl ? '#fff' : '#18181d';
+  // ---- 1-2. legs + feet ----
+  if (o.pants) {
+    g.lineWidth = 7.5; g.strokeStyle = OUTLINE;
+    g.beginPath(); g.moveTo(-1, -5); g.lineTo(step, -6); g.moveTo(-1, 5); g.lineTo(-step, 6); g.stroke();
+    g.lineWidth = 4.5; g.strokeStyle = W(o.pants);
+    g.beginPath(); g.moveTo(-1, -5); g.lineTo(step * (o.shorts ? 0.5 : 1), -6); g.moveTo(-1, 5); g.lineTo(-step * (o.shorts ? 0.5 : 1), 6); g.stroke();
+    if (o.shorts && o.moving) { g.strokeStyle = skin; g.beginPath(); g.moveTo(step * 0.5, -6); g.lineTo(step, -6); g.moveTo(-step * 0.5, 6); g.lineTo(-step, 6); g.stroke(); }
+  }
+  g.fillStyle = W(o.boots || '#18181d');
   g.beginPath(); g.ellipse(step, -6, 5, 3.6, 0, 0, TAU); g.fill();
   g.beginPath(); g.ellipse(-step, 6, 5, 3.6, 0, 0, TAU); g.fill();
-  const jacket = fl ? '#ffffff' : o.jacket, skin = fl ? '#ffffff' : (o.skin || SKIN[0]);
-  const rec = o.recoil || 0, w = o.weapon;
-  // arms + weapon
-  g.strokeStyle = OUTLINE; g.lineWidth = 8.5;
+  // ---- backpack (behind torso) ----
+  if (o.backpack) {
+    g.fillStyle = W(o.backpack); g.strokeStyle = OUTLINE; g.lineWidth = 2.5;
+    rr(g, -trx - 7, -try_ * 0.6, 9, try_ * 1.2, 3); g.fill(); g.stroke();
+    if (!fl) { g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(-trx - 6, -2, 7, 4); }
+  }
+  // ---- 3. arms + weapon ----
+  const bareArms = o.top === 'tshirt' || o.top === 'tank';
+  const sh = try_ - 4;
   const armTo = (ax, ay, hx, hy) => {
     g.strokeStyle = OUTLINE; g.lineWidth = 8.5; g.beginPath(); g.moveTo(ax, ay); g.lineTo(hx, hy); g.stroke();
-    g.strokeStyle = jacket; g.lineWidth = 5; g.beginPath(); g.moveTo(ax, ay); g.lineTo(hx, hy); g.stroke();
-    g.fillStyle = skin; g.strokeStyle = OUTLINE; g.lineWidth = 2; g.beginPath(); g.arc(hx, hy, 3.4, 0, TAU); g.fill(); g.stroke();
+    g.strokeStyle = bareArms ? skin : jacket; g.lineWidth = 5; g.beginPath(); g.moveTo(ax, ay); g.lineTo(hx, hy); g.stroke();
+    if (o.top === 'tshirt') { g.strokeStyle = jacket; g.beginPath(); g.moveTo(ax, ay); g.lineTo(lerp(ax, hx, 0.35), lerp(ay, hy, 0.35)); g.stroke(); }
+    g.fillStyle = hand; g.strokeStyle = OUTLINE; g.lineWidth = 2; g.beginPath(); g.arc(hx, hy, 3.4, 0, TAU); g.fill(); g.stroke();
   };
+  const rec = o.recoil || 0, w = o.weapon;
   if (w === 'bat' || w === 'knife' || w === 'pipe') {
-    const sw = o.swing || 0;                        // 0 idle, 0..1 swinging
+    const sw = o.swing || 0;
     const ang = sw > 0 ? lerp(-1.5, 1.3, Math.sin(sw * Math.PI * 0.5)) : -0.6;
     const hx = 12 + Math.cos(ang) * 4, hy = 4 + Math.sin(ang) * 10;
-    armTo(-1, -10, 10, -9);
+    armTo(-1, -sh, 10, -9);
     g.save(); g.translate(hx, hy); g.rotate(ang + 0.6);
     const L = w === 'knife' ? 12 : w === 'pipe' ? 26 : 28;
     g.fillStyle = fl ? '#fff' : w === 'knife' ? '#d8dde6' : w === 'pipe' ? '#8a8f9a' : '#a8743c';
@@ -55,84 +77,90 @@ function drawHuman(g, x, y, o) {
     else g.rect(0, -2, L, 4);
     g.closePath(); g.fill(); g.stroke();
     g.restore();
-    armTo(-1, 10, hx, hy);
+    armTo(-1, sh, hx, hy);
   } else if (w === 'fists') {
     const p = o.swing ? Math.sin(o.swing * Math.PI) * 10 : 0;
-    armTo(-1, -11, 13 + p, -8); armTo(-1, 11, 13 + (o.swing ? 0 : 0), 8);
+    armTo(-1, -sh - 1, 13 + p, -8); armTo(-1, sh + 1, 13, 8);
   } else if (w === 'dual') {
     const r2 = o.altRecoil || 0;
     drawGun(g, 'dual', 14 - rec, -8, fl, o.evolved); drawGun(g, 'dual', 14 - r2, 8, fl, o.evolved);
-    armTo(-1, -10, 15 - rec, -8); armTo(-1, 10, 15 - r2, 8);
+    armTo(-1, -sh, 15 - rec, -8); armTo(-1, sh, 15 - r2, 8);
   } else if (w) {
     const long = w === 'rifle' || w === 'heavy' || w === 'shotgun' || w === 'smg';
     const gx = (long ? 8 : 13) - rec;
     drawGun(g, w, gx, 1.5, fl, o.evolved);
-    armTo(-1, -10, gx + 2, 0);
-    armTo(-1, 10, long ? gx + 11 : gx + 2, long ? 3 : 3);
+    armTo(-1, -sh, gx + 2, 0);
+    armTo(-1, sh, long ? gx + 11 : gx + 2, 3);
   }
-  // torso / shoulders
-  g.fillStyle = jacket; g.strokeStyle = OUTLINE; g.lineWidth = 3;
-  g.beginPath(); g.ellipse(-1, 0, 9, 14, 0, 0, TAU); g.fill(); g.stroke();
+  // ---- 4. torso ----
+  if (o.top === 'hoodie' && !fl) { g.fillStyle = jacket; g.strokeStyle = OUTLINE; g.lineWidth = 3; g.beginPath(); g.ellipse(-5, 0, 6, 8, 0, 0, TAU); g.fill(); g.stroke(); }
+  g.fillStyle = jacket; g.strokeStyle = o.accent && !fl ? o.accent : OUTLINE; g.lineWidth = 3;
+  g.beginPath(); g.ellipse(-1, 0, trx, try_, 0, 0, TAU); g.fill(); g.stroke();
   if (!fl) {
-    g.fillStyle = 'rgba(255,255,255,0.16)'; g.beginPath(); g.ellipse(1, -4, 5, 8, 0.3, 0, TAU); g.fill();
-    if (o.vest) { g.fillStyle = o.vest; g.beginPath(); g.ellipse(-1, 0, 6, 10, 0, 0, TAU); g.fill(); }
+    if (o.top === 'tank') { g.fillStyle = skin; g.beginPath(); g.ellipse(-1, -try_ + 3, 3, 2.5, 0, 0, TAU); g.ellipse(-1, try_ - 3, 3, 2.5, 0, 0, TAU); g.fill(); }
+    g.fillStyle = 'rgba(255,255,255,0.16)'; g.beginPath(); g.ellipse(1, -4, trx * 0.55, try_ * 0.55, 0.3, 0, TAU); g.fill();
+    if (o.top === 'jacket' || !o.top) { g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(trx - 2, -try_ * 0.6); g.lineTo(trx - 2, try_ * 0.6); g.stroke(); }
+    if (o.accent) { g.fillStyle = o.accent; g.fillRect(-trx + 2, -try_ * 0.75, 2.5, try_ * 1.5); }
+    // ---- 5. vest / pads ----
+    if (o.vest) {
+      g.fillStyle = o.vest; g.strokeStyle = 'rgba(0,0,0,0.5)'; g.lineWidth = 1.5;
+      g.beginPath(); g.ellipse(-1, 0, trx * 0.7, try_ * 0.72, 0, 0, TAU); g.fill(); g.stroke();
+      if (o.top === 'vest') { g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(2, -try_ * 0.5, 3, 4); g.fillRect(2, try_ * 0.5 - 4, 3, 4); g.fillRect(2, -2, 3, 4); }
+    }
+    if (o.pads) { g.fillStyle = o.pads; g.strokeStyle = OUTLINE; g.lineWidth = 2; for (const sy of [-1, 1]) { g.beginPath(); g.ellipse(-1, sy * (try_ - 2), 5, 4, 0, 0, TAU); g.fill(); g.stroke(); } }
   }
-  // head
-  g.fillStyle = skin; g.strokeStyle = OUTLINE; g.lineWidth = 3;
+  // ---- 6. head + headgear ----
+  const st = o.style;
+  if (!fl && st === 'afro') { g.fillStyle = o.hair; g.strokeStyle = OUTLINE; g.lineWidth = 3; g.beginPath(); g.arc(-1.5, 0, 10.5, 0, TAU); g.fill(); g.stroke(); }
+  if (!fl && st === 'long') { g.fillStyle = o.hair; g.strokeStyle = OUTLINE; g.lineWidth = 3; g.beginPath(); g.ellipse(-5, 0, 8, 8.5, 0, 0, TAU); g.fill(); g.stroke(); }
+  const balaclava = o.mask === 'balaclava' && !fl;
+  g.fillStyle = balaclava ? (o.maskCol || '#1c1d22') : skin; g.strokeStyle = OUTLINE; g.lineWidth = 3;
   g.beginPath(); g.arc(1, 0, 7.5, 0, TAU); g.fill(); g.stroke();
   if (!fl) {
-    const st = o.style;
-    if (st === 'cap') { g.fillStyle = o.hair; g.beginPath(); g.arc(0, 0, 7.6, Math.PI * 0.5, Math.PI * 1.5); g.fill(); g.fillRect(-1, -7, 4, 14); g.fillRect(3, -5, 6, 10); }
-    else if (st === 'helmet') { g.fillStyle = o.hair; g.beginPath(); g.arc(0, 0, 8.4, 0, TAU); g.fill(); g.strokeStyle = OUTLINE; g.lineWidth = 2; g.stroke(); g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(4, -5, 3.5, 10); }
-    else if (st === 'bandana') { g.fillStyle = o.hair; g.beginPath(); g.arc(0, 0, 7.6, Math.PI * 0.45, Math.PI * 1.55); g.fill(); g.fillRect(-11, -2, 5, 2.5); g.fillRect(-11, 1, 4, 2.5); }
-    else if (st === 'mohawk') { g.fillStyle = o.hair; g.fillRect(-7, -1.8, 12, 3.6); }
+    const hc = o.hair || '#2a1a10';
+    if (st === 'cap') { g.fillStyle = hc; g.beginPath(); g.arc(0, 0, 7.6, Math.PI * 0.5, Math.PI * 1.5); g.fill(); g.fillRect(-1, -7, 4, 14); g.fillRect(3, -5, 6, 10); }
+    else if (st === 'helmet') { g.fillStyle = hc; g.beginPath(); g.arc(0, 0, 8.4, 0, TAU); g.fill(); g.strokeStyle = OUTLINE; g.lineWidth = 2; g.stroke(); g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(4, -5, 3.5, 10); }
+    else if (st === 'bandana') { g.fillStyle = hc; g.beginPath(); g.arc(0, 0, 7.6, Math.PI * 0.45, Math.PI * 1.55); g.fill(); g.fillRect(-11, -2, 5, 2.5); g.fillRect(-11, 1, 4, 2.5); }
+    else if (st === 'mohawk') { g.fillStyle = hc; g.fillRect(-7, -1.8, 12, 3.6); }
     else if (st === 'bald') { g.fillStyle = 'rgba(255,255,255,0.35)'; g.beginPath(); g.arc(-1, -2, 2.5, 0, TAU); g.fill(); }
-    else if (st === 'hood') { g.fillStyle = o.hair; g.beginPath(); g.arc(-0.5, 0, 8.6, Math.PI * 0.35, Math.PI * 1.65); g.fill(); g.strokeStyle = OUTLINE; g.lineWidth = 2; g.stroke(); }
-    else { g.fillStyle = o.hair || '#2a1a10'; g.beginPath(); g.arc(-0.5, 0, 7.6, Math.PI * 0.55, Math.PI * 1.45); g.fill(); }
+    else if (st === 'hood') { g.fillStyle = hc; g.beginPath(); g.arc(-0.5, 0, 8.6, Math.PI * 0.35, Math.PI * 1.65); g.fill(); g.strokeStyle = OUTLINE; g.lineWidth = 2; g.stroke(); }
+    else if (st === 'beanie') { g.fillStyle = hc; g.beginPath(); g.arc(0.5, 0, 8, Math.PI * 0.38, Math.PI * 1.62); g.fill(); g.strokeStyle = 'rgba(0,0,0,0.35)'; g.lineWidth = 2; g.beginPath(); g.arc(0.5, 0, 6.5, Math.PI * 0.42, Math.PI * 1.58); g.stroke(); g.fillStyle = hc; g.beginPath(); g.arc(-6, 0, 2.5, 0, TAU); g.fill(); }
+    else if (st === 'afro') { g.fillStyle = hc; g.beginPath(); g.arc(-0.5, 0, 7.6, Math.PI * 0.6, Math.PI * 1.4); g.fill(); }
+    else if (st === 'long') { g.fillStyle = hc; g.beginPath(); g.arc(-0.5, 0, 7.8, Math.PI * 0.5, Math.PI * 1.5); g.fill(); }
+    else if (!balaclava) { g.fillStyle = hc; g.beginPath(); g.arc(-0.5, 0, 7.6, Math.PI * 0.55, Math.PI * 1.45); g.fill(); }
+    // ---- 7. masks + glasses ----
+    const m = o.mask;
+    if (m === 'bandana') { g.fillStyle = o.maskCol || '#b3202c'; g.beginPath(); g.arc(1, 0, 7.6, -Math.PI * 0.42, Math.PI * 0.42); g.closePath(); g.fill(); g.fillRect(-8, -1, 3, 2); }
+    else if (m === 'balaclava') { g.fillStyle = skin; g.fillRect(4, -4.5, 3, 9); }
+    else if (m === 'skull') { g.fillStyle = '#ecebe4'; g.beginPath(); g.arc(1, 0, 7.4, -Math.PI * 0.45, Math.PI * 0.45); g.closePath(); g.fill(); g.fillStyle = '#111'; g.fillRect(4.5, -4, 2.2, 2.2); g.fillRect(4.5, 1.8, 2.2, 2.2); g.fillRect(7, -0.6, 1.2, 1.2); }
+    else if (m === 'gas') { g.fillStyle = o.maskCol || '#3a3d44'; g.beginPath(); g.arc(1, 0, 7.6, -Math.PI * 0.45, Math.PI * 0.45); g.closePath(); g.fill(); g.strokeStyle = OUTLINE; g.lineWidth = 2; g.beginPath(); g.arc(9, 0, 3, 0, TAU); g.fillStyle = '#5b5e66'; g.fill(); g.stroke(); g.fillStyle = 'rgba(160,230,255,0.7)'; g.fillRect(4, -5, 2.5, 3.5); g.fillRect(4, 1.5, 2.5, 3.5); }
+    if (o.glasses === 'shades') { g.fillStyle = '#0b0b0f'; g.fillRect(4.5, -5, 3, 4); g.fillRect(4.5, 1, 3, 4); g.fillRect(5.5, -1, 1.5, 2); g.fillStyle = 'rgba(255,255,255,0.5)'; g.fillRect(5, -4.5, 1, 1.2); }
+    else if (o.glasses === 'visor') { g.fillStyle = 'rgba(46,242,255,0.75)'; g.fillRect(4.5, -5.5, 2.8, 11); }
     if (o.eyes) { g.fillStyle = o.eyes; g.fillRect(5, -3.5, 2.5, 2.2); g.fillRect(5, 1.3, 2.5, 2.2); }
   }
   g.restore();
 }
 
-// ---------- card icons ----------
-function drawIcon(g, icon, color, size = 72) {
-  g.clearRect(0, 0, size, size);
-  g.save(); g.translate(size / 2, size / 2); g.scale(size / 72, size / 72);
-  g.lineJoin = 'round'; g.lineCap = 'round';
-  g.fillStyle = 'rgba(255,255,255,0.06)'; g.beginPath(); g.arc(0, 0, 32, 0, TAU); g.fill();
-  g.strokeStyle = color; g.fillStyle = color; g.lineWidth = 4;
-  const bullet = (x, y, a = 0, s = 1) => { g.save(); g.translate(x, y); g.rotate(a); g.scale(s, s); g.beginPath(); g.moveTo(-10, -5); g.lineTo(4, -5); g.quadraticCurveTo(12, 0, 4, 5); g.lineTo(-10, 5); g.closePath(); g.fill(); g.restore(); };
-  switch (icon) {
-    case 'rapid': for (let i = 0; i < 3; i++) bullet(-10 + i * 10, -10 + i * 10, -0.5, 0.9); break;
-    case 'heavy': bullet(0, 0, 0, 1.9); break;
-    case 'multi': bullet(0, -14, -0.35); bullet(4, 0, 0); bullet(0, 14, 0.35); break;
-    case 'pierce': bullet(8, 0, 0, 1.2); g.lineWidth = 3; for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(-22 + i * 9, -14); g.lineTo(-22 + i * 9, 14); g.stroke(); } break;
-    case 'ricochet': g.beginPath(); g.moveTo(-24, -18); g.lineTo(0, 16); g.lineTo(24, -18); g.stroke(); g.fillRect(-26, 18, 52, 4); bullet(20, -14, -0.9, 0.7); break;
-    case 'boom': g.beginPath(); for (let i = 0; i < 16; i++) { const a = i / 16 * TAU, r = i % 2 ? 12 : 26; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath(); g.fill(); break;
-    case 'mag': g.beginPath(); g.rect(-9, -24, 18, 48); g.stroke(); for (let i = 0; i < 4; i++) g.fillRect(-5, -18 + i * 10, 10, 6); break;
-    case 'reload': g.beginPath(); g.arc(0, 0, 18, 0.5, TAU - 0.3); g.stroke(); g.beginPath(); g.moveTo(18, -14); g.lineTo(22, 2); g.lineTo(8, -4); g.closePath(); g.fill(); break;
-    case 'crit': g.beginPath(); g.arc(0, 0, 18, 0, TAU); g.stroke(); g.beginPath(); g.arc(0, 0, 6, 0, TAU); g.fill(); g.beginPath(); g.moveTo(0, -28); g.lineTo(0, -12); g.moveTo(0, 28); g.lineTo(0, 12); g.moveTo(-28, 0); g.lineTo(-12, 0); g.moveTo(28, 0); g.lineTo(12, 0); g.stroke(); break;
-    case 'bolt': g.beginPath(); g.moveTo(6, -28); g.lineTo(-14, 4); g.lineTo(0, 4); g.lineTo(-6, 28); g.lineTo(14, -6); g.lineTo(0, -6); g.closePath(); g.fill(); break;
-    case 'storm': for (let i = 0; i < 6; i++) bullet(Math.cos(i) * 16, Math.sin(i * 2.2) * 16, i * 0.3 - 0.6, 0.7); break;
-    case 'velocity': bullet(10, 0, 0, 1.2); g.lineWidth = 3; for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(-28, -10 + i * 10); g.lineTo(-8, -10 + i * 10); g.stroke(); } break;
-    case 'boot': g.beginPath(); g.moveTo(-12, -22); g.lineTo(4, -22); g.lineTo(4, 4); g.lineTo(20, 10); g.lineTo(20, 20); g.lineTo(-12, 20); g.closePath(); g.fill(); break;
-    case 'dash': for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(-22 + i * 12, -16); g.lineTo(-6 + i * 12, 0); g.lineTo(-22 + i * 12, 16); g.stroke(); } break;
-    case 'longdash': g.beginPath(); g.moveTo(-26, 0); g.lineTo(22, 0); g.stroke(); g.beginPath(); g.moveTo(12, -12); g.lineTo(26, 0); g.lineTo(12, 12); g.stroke(); g.fillRect(-28, -14, 4, 28); break;
-    case 'fire': g.beginPath(); g.moveTo(0, -28); g.quadraticCurveTo(22, -2, 14, 14); g.quadraticCurveTo(0, 30, -14, 14); g.quadraticCurveTo(-20, 0, -6, -10); g.quadraticCurveTo(-2, 2, 0, -28); g.fill(); break;
-    case 'adrenaline': g.beginPath(); g.moveTo(-28, 4); g.lineTo(-12, 4); g.lineTo(-6, -14); g.lineTo(2, 20); g.lineTo(8, -2); g.lineTo(28, -2); g.stroke(); break;
-    case 'evade': g.globalAlpha = 0.4; g.beginPath(); g.arc(-10, 0, 12, 0, TAU); g.fill(); g.globalAlpha = 1; g.beginPath(); g.arc(10, 0, 12, 0, TAU); g.fill(); break;
-    case 'magnet': g.lineWidth = 9; g.beginPath(); g.arc(0, -2, 16, Math.PI, 0); g.lineTo(16, 18); g.moveTo(-16, -2); g.lineTo(-16, 18); g.stroke(); g.fillStyle = '#fff'; g.fillRect(-21, 12, 10, 8); g.fillRect(11, 12, 10, 8); break;
-    case 'momentum': for (let i = 0; i < 3; i++) { g.globalAlpha = 0.4 + i * 0.3; g.beginPath(); g.arc(-14 + i * 12, 0, 8 + i * 3, 0, TAU); g.fill(); } g.globalAlpha = 1; break;
-    case 'armor': g.beginPath(); g.moveTo(0, -26); g.lineTo(22, -16); g.quadraticCurveTo(22, 14, 0, 28); g.quadraticCurveTo(-22, 14, -22, -16); g.closePath(); g.fill(); break;
-    case 'regen': g.fillRect(-6, -22, 12, 44); g.fillRect(-22, -6, 44, 12); break;
-    case 'vamp': g.beginPath(); g.moveTo(0, 24); g.bezierCurveTo(-30, 2, -18, -26, 0, -10); g.bezierCurveTo(18, -26, 30, 2, 0, 24); g.fill(); g.fillStyle = '#111'; g.beginPath(); g.moveTo(-8, -6); g.lineTo(-4, 6); g.lineTo(0, -6); g.moveTo(0, -6); g.lineTo(4, 6); g.lineTo(8, -6); g.fill(); break;
-    case 'shock': for (let i = 0; i < 3; i++) { g.globalAlpha = 1 - i * 0.28; g.beginPath(); g.arc(0, 0, 8 + i * 9, 0, TAU); g.stroke(); } g.globalAlpha = 1; break;
-    case 'blades': for (let i = 0; i < 3; i++) { g.save(); g.rotate(i * TAU / 3); g.beginPath(); g.moveTo(6, -4); g.lineTo(28, 0); g.lineTo(6, 4); g.closePath(); g.fill(); g.restore(); } g.beginPath(); g.arc(0, 0, 7, 0, TAU); g.stroke(); break;
-    case 'drone': g.beginPath(); g.rect(-10, -10, 20, 20); g.fill(); g.lineWidth = 3; for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { g.beginPath(); g.arc(a * 18, b * 18, 7, 0, TAU); g.stroke(); } break;
-    case 'overclock': g.beginPath(); g.arc(0, 0, 22, 0, TAU); g.stroke(); g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -16); g.moveTo(0, 0); g.lineTo(12, 6); g.stroke(); g.beginPath(); g.moveTo(-28, -24); g.lineTo(-18, -16); g.stroke(); break;
-    case 'gun': g.fillRect(-26, -6, 40, 10); g.fillRect(-26, -6, 10, 22); g.fillRect(8, -10, 18, 4); break;
-    case 'heal': g.beginPath(); g.moveTo(0, 24); g.bezierCurveTo(-30, 2, -18, -26, 0, -10); g.bezierCurveTo(18, -26, 30, 2, 0, 24); g.fill(); break;
-    case 'star': default: g.beginPath(); for (let i = 0; i < 10; i++) { const a = i / 10 * TAU - Math.PI / 2, r = i % 2 ? 11 : 26; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath(); g.fill();
-  }
-  g.restore();
+// ---------- player cosmetics ----------
+const LOOK_DEFAULT = {
+  skin: 0, build: 'normal', top: 'jacket', topCol: '#1fa6b8', vest: 'none', vestCol: '#3b4a2f', gloves: 'none', glovesCol: '#1c1d22',
+  style: 'cap', hairCol: '#ffd23f', mask: 'none', maskCol: '#b3202c', glasses: 'none',
+  pants: '#2b2f3a', shorts: false, boots: '#18181d', backpack: 'none', backpackCol: '#4b5a3a', pads: false, accent: 'none',
+};
+const LOOK_OPTS = {
+  build: ['slim', 'normal', 'broad'], top: ['jacket', 'tshirt', 'hoodie', 'tank', 'vest'], vest: ['none', 'plate'],
+  gloves: ['none', 'gloves'], style: ['short', 'long', 'afro', 'mohawk', 'bald', 'cap', 'beanie', 'helmet', 'bandana', 'hood'],
+  mask: ['none', 'bandana', 'balaclava', 'skull', 'gas'], glasses: ['none', 'shades', 'visor'], backpack: ['none', 'pack'], accent: ['none', 'cyan', 'gold', 'magenta', 'red'],
+};
+const ACCENTS = { cyan: '#2ef2ff', gold: '#ffc93c', magenta: '#ff4fd8', red: '#ff3b4e' };
+const PALETTE = ['#1fa6b8', '#e0422f', '#2f6e8f', '#ffd23f', '#52f08a', '#7a3fb5', '#ff4fd8', '#ececf0', '#1d1d26', '#4b5a3a', '#c8692c', '#3a7bd5', '#8c8f99', '#b3202c', '#2a1a10', '#ff9a1f'];
+let playerLook = Object.assign({}, LOOK_DEFAULT, store.get('uc_look', {}));
+function lookToOpts(L) {
+  return {
+    skin: SKIN[L.skin] || SKIN[0], build: L.build, top: L.top, jacket: L.topCol,
+    vest: L.vest === 'plate' || L.top === 'vest' ? L.vestCol : null, gloves: L.gloves === 'gloves' ? L.glovesCol : null,
+    style: L.style, hair: L.hairCol, mask: L.mask === 'none' ? null : L.mask, maskCol: L.maskCol, glasses: L.glasses === 'none' ? null : L.glasses,
+    pants: L.pants, shorts: L.shorts, boots: L.boots, backpack: L.backpack === 'pack' ? L.backpackCol : null,
+    pads: L.pads ? '#3a3d44' : null, accent: ACCENTS[L.accent] || null,
+  };
 }

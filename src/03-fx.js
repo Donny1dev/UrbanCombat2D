@@ -106,6 +106,23 @@ const FX = {
     for (let i = 0; i < n; i++) { const s = rand(TAU), v = rand(40, spd); this.add(P_EMBER, x, y, Math.cos(s) * v, Math.sin(s) * v, rand(0.25, 0.5), rand(2, 4), color, { drag: 5 }); }
   },
 
+  // comic-book impact word with a starburst
+  comic(x, y, word, color = '#ffd23f') {
+    if (this.texts.length > 110) this.texts.shift();
+    this.texts.push({ x, y, vy: -40, str: word, color, size: 26, life: 0.7, max: 0.7, pop: 1, comic: true, rot: rand(-0.25, 0.25) });
+  },
+  // cheap 'heat distortion': a dark refraction band chased by a bright edge
+  distort(x, y, r) {
+    this.add(P_RING, x, y, 0, 0, 0.32, r * 1.1, '#05060a', { lw: 16 });
+    this.add(P_RING, x, y, 0, 0, 0.26, r, '#ffffff', { lw: 3 });
+  },
+  // weapon-flavoured hit particles
+  weaponHit(x, y, a, kind, color) {
+    if (kind === 'shotgun') { for (let i = 0; i < 4; i++) { const s = a + rand(-0.9, 0.9), v = rand(150, 420); this.add(P_DOT, x, y, Math.cos(s) * v, Math.sin(s) * v, rand(0.2, 0.4), rand(4, 6), i % 2 ? '#e8283c' : color, { drag: 7 }); } }
+    else if (kind === 'heavy') { this.add(P_RING, x, y, 0, 0, 0.18, 34, '#fff0b0', { lw: 4 }); for (let i = 0; i < 6; i++) { const s = a + rand(-0.5, 0.5), v = rand(300, 700); this.add(P_SPARK, x, y, Math.cos(s) * v, Math.sin(s) * v, rand(0.1, 0.22), 3, '#fff0b0', { drag: 6 }); } }
+    else if (kind === 'rifle') { for (let i = 0; i < 3; i++) { const s = a + rand(-0.3, 0.3), v = rand(300, 600); this.add(P_SPARK, x, y, Math.cos(s) * v, Math.sin(s) * v, rand(0.08, 0.16), 2, '#ffe07a', { drag: 8 }); } }
+    else if (kind === 'smg' || kind === 'dual') { for (let i = 0; i < 2; i++) { const s = a + rand(-0.8, 0.8), v = rand(150, 350); this.add(P_SPARK, x, y, Math.cos(s) * v, Math.sin(s) * v, 0.1, 1.5, '#ffb347', { drag: 8 }); } }
+  },
   update(dt) {
     const ps = this.parts;
     for (let i = ps.length - 1; i >= 0; i--) {
@@ -186,6 +203,14 @@ const FX = {
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     for (const t of this.texts) {
       const a = Math.min(1, t.life / 0.25), s = t.size * (1 + t.pop * 0.6);
+      if (t.comic) {
+        ctx.save(); ctx.translate(t.x, t.y); ctx.rotate(t.rot); ctx.globalAlpha = a;
+        const w = t.str.length * s * 0.42 + 18;
+        ctx.fillStyle = '#fff4c0'; ctx.strokeStyle = '#0a0a0d'; ctx.lineWidth = 3;
+        ctx.beginPath(); for (let i = 0; i < 18; i++) { const q = i / 18 * TAU, r = i % 2 ? 0.62 : 1; ctx.lineTo(Math.cos(q) * w * r, Math.sin(q) * s * 1.2 * r); } ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.font = '400 ' + s + 'px Bungee, Impact, sans-serif'; ctx.lineWidth = 5; ctx.strokeText(t.str, 0, 2); ctx.fillStyle = t.color; ctx.fillText(t.str, 0, 2);
+        ctx.restore(); continue;
+      }
       ctx.globalAlpha = a;
       ctx.font = `${t.crit ? 400 : 800} ${s}px ${t.crit ? 'Bungee, Impact, sans-serif' : '"Barlow Condensed", "Arial Narrow", sans-serif'}`;
       ctx.lineWidth = 4; ctx.strokeStyle = '#0a0a0d'; ctx.strokeText(t.str, t.x, t.y);

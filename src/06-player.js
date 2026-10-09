@@ -1,33 +1,60 @@
-// ===================== PLAYER, BULLETS, PICKUPS =====================
+// ===================== PLAYER: movement, dash, firing =====================
 const DASH_TIME = 0.17, BASE_SPEED = 275, BASE_DASH = 175;
 let player = null;
 function newPlayer() {
   const p = {
-    x: Map.startX, y: Map.startY, r: 14, vx: 0, vy: 0, a: 0, hp: 100, maxHp: 100,
-    S: freshStats(), upg: {}, weapon: 'pistol', evolved: null, gun: null, ammo: 0, reloading: 0,
+    x: Map.startX, y: Map.startY, r: 14, vx: 0, vy: 0, a: 0, hp: 100, maxHp: 100, bonusHp: 0,
+    upg: {}, synergies: new Set(), S: null, weapon: 'pistol', evo: newEvoState(), gun: null, ammo: 0, reloading: 0, reloadTac: false,
     fireCd: 0, recoil: 0, altRecoil: 0, altSide: 1, phase: 0, moving: false, lean: 0,
-    dashT: 0, dashCdT: 0, dashX: 1, dashY: 0, dashTrailD: 0, invuln: 0, hurtT: 0, ghosts: [], ghostT: 0, footT: 0,
-    level: 1, xp: 0, xpShown: 0, xpNeed: xpForLevel(1), xpPulse: 0, kills: 0, momentumT: 0, adrenT: 0,
-    overclockT: 0, ocKills: 0, bladeAng: 0, drones: [], glowT: 0, glowCol: '#2ef2ff', squash: 0, dmgDealt: 0, pickStreak: 0, pickT: 0,
+    dashT: 0, dashDur: DASH_TIME, dashCdT: 0, dashX: 1, dashY: 0, dashTrailD: 0, dashHits: new Set(), slid: false,
+    invuln: 0, hurtT: 0, ghosts: [], ghostT: 0, footT: 0,
+    level: 1, xp: 0, xpShown: 0, xpNeed: xpForLevel(1), xpPulse: 0, kills: 0, momentumT: 0,
+    overclockT: 0, ocKills: 0, bladeAng: 0, bladeArcT: 1, drones: [], droneOD: 10, droneODT: 0, glowT: 0, glowCol: '#2ef2ff', squash: 0,
+    dmgDealt: 0, pickStreak: 0, pickT: 0, xpTotal: 0, weaponTime: {},
+    buffs: {}, shield: 0, shieldT: 0, ironCd: 0, secondWindUsed: false, combatT: 9, vampBudget: 0, reactiveCd: 0,
+    shotCount: 0, sustainT: 0, hitStreak: 0, charge: 0, primed: false, thunderN: 0, phantomT: 0, apocT: 2.2, firstShotReady: false,
+    locks: 1, rerolls: 1, savedCard: null, transformT: 0,
   };
-  p.gun = buildGun(p); p.ammo = p.gun.mag;
+  refreshStats(p); p.ammo = p.gun.mag;
   return p;
 }
-function xpForLevel(l) { return Math.floor(6 + (l - 1) * 5 + Math.pow(l - 1, 1.7) * 1.6); }
+function xpForLevel(l) { return Math.floor(6 + (l - 1) * 5 + Math.pow(l - 1, 1.75) * 1.6); }
+const buff = (p, k) => (p.buffs[k] || 0) > 0;
+const addBuff = (p, k, t) => { p.buffs[k] = Math.max(p.buffs[k] || 0, t); };
+const lastStandOn = p => p.S.laststand > 0 && p.hp < p.maxHp * 0.3;
+
+function moveSpeed(p) {
+  const S = p.S;
+  const mom = S.momentum ? Math.min(1, p.momentumT / 2) * 0.08 * S.momentum : 0;
+  const bonus = mom + (buff(p, 'adren') ? 0.18 + 0.06 * S.adren : 0) + (buff(p, 'fleet') ? 0.2 + 0.1 * S.fleet : 0) +
+    (buff(p, 'stim') ? 0.2 * S.stimulant : 0) + (buff(p, 'bloodrush') ? 0.12 : 0) + (buff(p, 'secondwind') ? 0.4 : 0) +
+    (p.reloading > 0 ? S.evreload : 0) + (buff(p, 'mayhem') ? 0.1 : 0);
+  return BASE_SPEED * S.moveMul * (1 - 0.03 * S.fortified) * (1 + bonus);
+}
+function fireRate(p) {
+  const S = p.S, g = p.gun;
+  const bonus = S.rungun * Math.min(1, p.momentumT / 1.5) * (p.moving ? 1 : 0) + (buff(p, 'tactical') ? S.tactical : 0) +
+    (lastStandOn(p) ? S.laststand : 0) + (buff(p, 'streakFire') ? 0.25 : 0) + (buff(p, 'surgeon') ? 0.25 : 0) + (buff(p, 'mayhem') ? 0.3 : 0);
+  return g.rate * (p.overclockT > 0 ? 1.7 : 1) * (1 + bonus);
+}
+const reloadTime = p => p.gun.reload * (buff(p, 'stim') ? 1 - 0.2 * p.S.stimulant : 1) * (buff(p, 'streakReload') ? 0.5 : 1);
+function nearWalls(x, y) {
+  let n = 0; const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
+  for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) if ((ox || oy) && objAt(tx + ox, ty + oy) !== O_NONE) n++;
+  return n >= 3;
+}
 
 function updatePlayer(p, dt) {
   const S = p.S, g = p.gun;
-  // --- aim ---
+  for (const k in p.buffs) if (p.buffs[k] > 0) p.buffs[k] -= dt;
+  p.weaponTime[p.weapon] = (p.weaponTime[p.weapon] || 0) + dt;
   p.a = Math.atan2(mouse.y - p.y, mouse.x - p.x);
   // --- movement ---
   let ix = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0);
   let iy = (keys.s || keys.arrowdown ? 1 : 0) - (keys.w || keys.arrowup ? 1 : 0);
   const il = Math.hypot(ix, iy); if (il) { ix /= il; iy /= il; }
   p.moving = il > 0;
-  if (p.moving) p.momentumT = Math.min(2.5, p.momentumT + dt); else p.momentumT = Math.max(0, p.momentumT - dt * 3);
-  const mom = S.momentum ? Math.min(1, p.momentumT / 2) * 0.12 * S.momentum : 0;
-  const speed = BASE_SPEED * S.moveMul * (1 + mom + (p.adrenT > 0 ? 0.3 : 0));
-  p.adrenT -= dt;
+  p.momentumT = p.moving ? Math.min(2.5, p.momentumT + dt) : Math.max(0, p.momentumT - dt * 3);
   p.dashCdT -= dt;
   if (p.dashT > 0) {
     p.dashT -= dt;
@@ -35,351 +62,227 @@ function updatePlayer(p, dt) {
     p.vx = p.dashX * dsp; p.vy = p.dashY * dsp;
     p.ghostT -= dt;
     if (p.ghostT <= 0) { p.ghostT = 0.022; p.ghosts.push({ x: p.x, y: p.y, a: p.a, life: 0.28 }); }
-    if (Math.random() < 0.8) FX.add(P_SPARK, p.x + rand(-8, 8), p.y + rand(-8, 8), -p.vx * 0.3, -p.vy * 0.3, 0.15, 2, '#9ff6ff', { drag: 6 });
+    if (Math.random() < 0.8) FX.add(P_SPARK, p.x + rand(-8, 8), p.y + rand(-8, 8), -p.vx * 0.3, -p.vy * 0.3, 0.15, 2, p.slid ? '#ffd27a' : '#9ff6ff', { drag: 6 });
     if (S.afterburn) {
       p.dashTrailD += Math.hypot(p.vx, p.vy) * dt;
-      while (p.dashTrailD > 16) { p.dashTrailD -= 16; Hazards.fire(p.x, p.y, 30 + S.afterburn * 25); }
+      while (p.dashTrailD > 16) { p.dashTrailD -= 16; Hazards.fire(p.x, p.y, 30 + S.afterburn * 25, S.syn.scorched); }
+    }
+    if (S.kinimpact) {
+      const mult = S.syn.assault ? 2 : 1;
+      Grid.query(p.x, p.y, 60, e => {
+        if (e.dead || p.dashHits.has(e.id) || dist2(e.x, e.y, p.x, p.y) > (e.r + p.r + 6) ** 2) return;
+        p.dashHits.add(e.id);
+        Game.damageEnemy(e, (25 + 20 * S.kinimpact) * mult * (0.6 + 0.4 * S.dmgMul), Math.atan2(e.y - p.y, e.x - p.x), 450 * (S.syn.assault ? 1.5 : 1), false, 'impact');
+        FX.add(P_RING, e.x, e.y, 0, 0, 0.2, 30, '#ffffff', { lw: 4 }); Game.shake(3);
+      });
     }
     if (p.dashT <= 0) {
-      p.vx *= 0.35; p.vy *= 0.35; p.invuln = 0.08;
+      const keep = p.slid ? 0.85 : 0.35;
+      p.vx *= keep; p.vy *= keep; p.invuln = 0.08 + (S.phase ? 0.06 : 0);
       if (S.shock) Game.shockwave(p.x, p.y, 110 + S.shock * 28, 32 * S.shock * (0.6 + S.dmgMul * 0.4));
     }
   } else {
-    const k = damp(p.moving ? 24 : 18, dt);
+    const speed = moveSpeed(p), k = damp(p.moving ? 24 : p.slid && p.dashCdT > S.dashCd - 0.45 ? 4 : 18, dt);
     p.vx += (ix * speed - p.vx) * k; p.vy += (iy * speed - p.vy) * k;
   }
-  const wantDash = keys.shift || keys[' '];
-  if (wantDash && p.dashCdT <= 0 && p.dashT <= 0) {
-    if (p.moving) { p.dashX = ix; p.dashY = iy; } else { p.dashX = Math.cos(p.a); p.dashY = Math.sin(p.a); }
-    p.dashT = DASH_TIME; p.dashCdT = S.dashCd; p.dashTrailD = 0;
-    Sound.dash(); FX.dust(p.x, p.y, 5, 'rgba(180,230,255,');
-    FX.add(P_RING, p.x, p.y, 0, 0, 0.25, 34, '#9ff6ff', { lw: 3 });
-  }
+  if ((keys.shift || keys[' ']) && p.dashCdT <= 0 && p.dashT <= 0) startDash(p, ix, iy);
   moveCircle(p, p.vx * dt, p.vy * dt);
-  // walk cycle + footstep dust + lean
+  bodyCollide(p);
+  // walk cycle + dust + lean
   const sp = Math.hypot(p.vx, p.vy);
   p.phase += sp * dt * 0.055;
   p.lean = lerp(p.lean, clamp(sp / 300, 0, 1), damp(10, dt));
   p.footT -= dt * (sp / 260);
   if (p.footT <= 0 && sp > 60) { p.footT = 0.3; FX.dust(p.x - p.vx * 0.04, p.y - p.vy * 0.04, 1); }
   for (let i = p.ghosts.length - 1; i >= 0; i--) { p.ghosts[i].life -= dt; if (p.ghosts[i].life <= 0) p.ghosts.splice(i, 1); }
-  // timers
+  // --- timers, sustain ---
   p.invuln -= dt; p.hurtT -= dt; p.recoil = Math.max(0, p.recoil - dt * 60); p.altRecoil = Math.max(0, p.altRecoil - dt * 60);
   p.glowT -= dt; p.squash = Math.max(0, p.squash - dt * 5); p.pickT -= dt; if (p.pickT <= 0) p.pickStreak = 0;
-  p.overclockT -= dt;
-  if (S.regen && p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + S.regen * dt);
+  p.overclockT -= dt; p.ironCd -= dt; p.combatT += dt; p.reactiveCd -= dt; p.transformT = Math.max(0, p.transformT - dt);
+  p.vampBudget = Math.min(6 + 3 * S.vamp, p.vampBudget + (6 + 3 * S.vamp) * dt);
+  const regen = S.regen * (p.combatT > 4 ? 2 : 1) + (buff(p, 'medregen') ? 3 : 0);
+  if (regen && p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + regen * dt);
+  if (p.shield > 0) { p.shieldT -= dt; if (p.shieldT <= 0) p.shield = Math.max(0, p.shield - 3 * dt); }
+  if (S.secondwind && !p.secondWindUsed && p.hp < p.maxHp * 0.35) {
+    p.secondWindUsed = true; addBuff(p, 'secondwind', 3 + S.secondwind); p.invuln = 0.5;
+    FX.text(p.x, p.y - 40, 'SECOND WIND', '#2ef2ff', 22, { crit: true }); FX.add(P_RING, p.x, p.y, 0, 0, 0.4, 80, '#2ef2ff', { lw: 5 }); Sound.dash();
+  }
   // --- reload ---
   if (p.reloading > 0) {
     p.reloading -= dt;
-    if (p.reloading <= 0) { p.ammo = g.mag; Sound.reloadDone(); }
+    if (p.reloading <= 0) {
+      p.ammo = g.mag; Sound.reloadDone();
+      if (p.reloadTac && S.tactical) { addBuff(p, 'tactical', 4); FX.text(p.x, p.y - 34, 'TACTICAL', '#ff4f5e', 15); }
+      if (S.firstStrike) p.firstShotReady = true;
+    }
   }
   if (keys.r && p.reloading <= 0 && p.ammo < g.mag) startReload(p);
   // --- shooting ---
   p.fireCd -= dt;
-  const oc = p.overclockT > 0;
-  if (mouse.down && p.reloading <= 0) {
+  const oc = p.overclockT > 0, firing = mouse.down && p.reloading <= 0;
+  p.sustainT = firing ? p.sustainT + dt : Math.max(0, p.sustainT - dt * 3);
+  if (firing) {
     let shots = 0;
     while (p.fireCd <= 0 && shots < 4) {
       if (p.ammo <= 0 && !oc) { startReload(p); break; }
       fire(p);
       if (!oc) p.ammo--;
-      p.fireCd += 1 / (g.rate * (oc ? 1.7 : 1));
+      p.fireCd += 1 / fireRate(p);
       shots++;
     }
     if (p.ammo <= 0 && !oc && p.reloading <= 0) startReload(p);
+    if (g.apocalypse) { p.apocT -= dt; if (p.apocT <= 0) { p.apocT = 2.2; radialBarrage(p); } }
+    if (g.phantom) { p.phantomT -= dt; if (p.phantomT <= 0) { p.phantomT = 0.45; phantomVolley(p); } }
   }
   if (p.fireCd < 0) p.fireCd = 0;
-  // --- orbiting blades & drones ---
-  p.bladeAng += dt * 3.4;
+  // --- blades & drones ---
+  p.bladeAng += dt * 3.4 * (1 + 0.25 * S.orbital);
   if (S.blades) updateBlades(p, dt);
   while (p.drones.length < S.drones) p.drones.push({ x: p.x, y: p.y, cd: rand(0.3), a: 0, t: rand(TAU) });
-  for (let i = 0; i < p.drones.length; i++) updateDrone(p, p.drones[i], i, dt);
+  if (S.overdrive) { p.droneOD -= dt; p.droneODT -= dt; if (p.droneOD <= 0) { p.droneOD = 10; p.droneODT = 2 + S.overdrive; FX.text(p.x, p.y - 44, 'OVERDRIVE', '#8c7bff', 16); } }
+  let focus = null;
+  for (let i = 0; i < p.drones.length; i++) focus = updateDrone(p, p.drones[i], i, dt, focus);
+}
+function startDash(p, ix, iy) {
+  const S = p.S;
+  if (p.moving) { p.dashX = ix; p.dashY = iy; } else { p.dashX = Math.cos(p.a); p.dashY = Math.sin(p.a); }
+  p.slid = S.slide > 0 && nearWalls(p.x, p.y);
+  p.dashDur = DASH_TIME * (p.slid ? 1.35 + 0.15 * S.slide : 1);
+  p.dashT = p.dashDur; p.dashCdT = S.dashCd; p.dashTrailD = 0; p.dashHits.clear();
+  Sound.dash(); FX.dust(p.x, p.y, 5, 'rgba(180,230,255,');
+  FX.add(P_RING, p.x, p.y, 0, 0, 0.25, 34, '#9ff6ff', { lw: 3 });
+  if (p.slid) FX.text(p.x, p.y - 30, 'SLIDE', '#ffd27a', 14);
+  if (S.ghost) Decoys.add(p.x, p.y, 1.2 + 0.4 * S.ghost, 250 + 50 * S.ghost, S.syn.phantomrun);
+  if (S.emp) Game.emp(p.x, p.y, 220 + 60 * S.emp, 1 + 0.5 * S.emp);
+}
+// soft body blocking so being surrounded matters (Phase Dash ignores it)
+function bodyCollide(p) {
+  if (p.dashT > 0 && p.S.phase) return;
+  Grid.query(p.x, p.y, 80, e => {
+    if (e.dead || e.spawnT > 0) return;
+    const dx = p.x - e.x, dy = p.y - e.y, rr2 = p.r + e.r - 4, d2 = dx * dx + dy * dy;
+    if (d2 >= rr2 * rr2 || d2 < 0.01) return;
+    const d = Math.sqrt(d2), push = rr2 - d, share = (e.d.resist || 0) > 0.6 ? 0.7 : 0.3;
+    p.x += dx / d * push * share; p.y += dy / d * push * share;
+    e.x -= dx / d * push * (1 - share); e.y -= dy / d * push * (1 - share);
+  });
+  collideCircle(p);
 }
 function startReload(p) {
   if (p.reloading > 0) return;
-  p.reloading = p.gun.reload; Sound.reload();
+  p.reloadTac = p.ammo > 0;
+  p.reloading = reloadTime(p); Sound.reload();
   FX.text(p.x, p.y - 30, 'RELOAD', '#ffd23f', 15);
 }
+function bulletTemplate(p, mul) {
+  const g = p.gun;
+  return {
+    dmg: g.dmg * mul, life: g.life, r: g.radius, pierce: g.pierce, rico: g.ricochet, knock: g.knock, trail: g.trail, width: g.width,
+    crit: g.critChance, critMul: g.critMul, src: 'gun', boom: g.impactBoom, rail: g.rail, omega: g.omega, inferno: g.inferno,
+    cryoC: g.cryoCannon, armorPen: g.armorPen || 0, massacre: g.massacre, canFrag: true, warrant: g.warrant,
+  };
+}
 function fire(p) {
-  const g = p.gun, hue = p.evolved ? (EVOS.find(e => e.id === p.evolved) || {}).hue : null;
+  const g = p.gun, S = p.S;
   let side = 0;
   if (p.weapon === 'dual') { p.altSide = -p.altSide; side = p.altSide * 8; }
   const ca = Math.cos(p.a), sa = Math.sin(p.a);
   const len = (GUN_SHAPES[p.weapon] || [14])[0] + (p.weapon === 'dual' || p.weapon === 'pistol' ? 14 : 9);
   const mx = p.x + ca * len - sa * side, my = p.y + sa * len + ca * side;
-  // don't spawn bullets inside a wall when hugging it
-  const sx = solidAt(mx, my) ? p.x : mx, sy = solidAt(mx, my) ? p.y : my;
+  const blocked = solidAt(mx, my), sx = blocked ? p.x : mx, sy = blocked ? p.y : my;
+  // conditional damage multipliers for this trigger pull
+  let mul = 1, tag = null;
+  if (lastStandOn(p)) mul *= 1 + S.laststand;
+  if (buff(p, 'mayhem')) mul *= 1.15;
+  if (p.firstShotReady) { mul *= 1 + S.firstStrike; p.firstShotReady = false; tag = 'FIRST STRIKE'; }
+  if (S.lastRound && p.ammo === 1 && p.overclockT <= 0) { mul *= 1 + S.lastRound; tag = 'LAST ROUND'; }
+  const primed = p.primed; if (primed) { mul *= 3; p.primed = false; tag = 'WARRANT'; }
+  const tpl = bulletTemplate(p, mul);
+  if (primed) tpl.crit = 1;
+  if (g.thunder) { p.thunderN = (p.thunderN + 1) % 4; if (p.thunderN === 0) { tpl.charged = true; tpl.width += 2; tpl.trail = '#e8f6ff'; } }
+  if (tag) { tpl.width += 1.5; FX.text(p.x, p.y - 34, tag, '#ffd23f', 13); }
+  const spread = g.spread * (1 - S.recoilComp * Math.min(1, p.sustainT / 1.2));
   const n = g.pellets;
   for (let i = 0; i < n; i++) {
-    let ang = p.a + (Math.random() - 0.5) * 2 * g.spread * (p.weapon === 'shotgun' ? 0.5 : 1);
+    let ang = p.a + (Math.random() - 0.5) * 2 * spread * (p.weapon === 'shotgun' ? 0.5 : 1);
     if (g.fan && n > 1) ang += (i - (n - 1) / 2) * g.fan;
-    const spd = g.speed * (p.weapon === 'shotgun' ? rand(0.8, 1.15) : rand(0.97, 1.03));
-    Bullets.spawn(sx, sy, ang, spd, g, false);
+    Bullets.player(sx, sy, ang, g.speed * (p.weapon === 'shotgun' ? rand(0.8, 1.15) : rand(0.97, 1.03)), tpl);
+  }
+  p.shotCount++;
+  if (S.syn.hurricane && p.shotCount % 12 === 0) {
+    const t2 = Object.assign({}, tpl, { dmg: tpl.dmg * 0.6, canFrag: false });
+    for (let i = 0; i < 8; i++) Bullets.player(sx, sy, p.a + (i - 3.5) * 0.17, g.speed * 0.9, t2);
+    FX.add(P_RING, sx, sy, 0, 0, 0.2, 40, '#ffd27a', { lw: 3 });
+  }
+  if (g.worldbreaker) {
+    Game.coneBlast(sx, sy, p.a, 160, g.dmg * 0.9, 520);
+    for (let i = 0; i < 4; i++) Bullets.player(sx, sy, p.a + rand(-0.6, 0.6), g.speed * 0.7, Object.assign({}, tpl, { dmg: tpl.dmg * 0.35, life: 0.3, r: 3, width: 2, src: 'frag', canFrag: false, pierce: 0 }));
   }
   if (p.weapon === 'dual') { if (p.altSide > 0) p.altRecoil = g.recoil; else p.recoil = g.recoil; } else p.recoil = g.recoil;
-  FX.muzzle(mx, my, p.a, p.weapon === 'shotgun' || p.weapon === 'heavy' ? 1.5 : 1, hue);
-  Game.muzzle = { x: mx, y: my, a: p.a, t: 0.05, scale: p.weapon === 'shotgun' || p.weapon === 'heavy' ? 1.5 : 1, hue };
+  const scale = p.weapon === 'shotgun' || p.weapon === 'heavy' ? 1.5 : 1;
+  FX.muzzle(mx, my, p.a, scale, g.hue);
+  Game.muzzle = { x: mx, y: my, a: p.a, t: 0.05, scale, hue: g.hue };
   FX.casing(p.x + ca * 6, p.y + sa * 6, p.a, g.shell);
-  Sound.shoot(p.weapon, !!p.evolved);
-  Game.shake(g.shake * 0.8, p.a);
+  Sound.shoot(p.weapon, g.evolved);
+  Game.shake(g.shake * 0.8);
   p.vx -= ca * g.recoil * 4; p.vy -= sa * g.recoil * 4;
 }
-
-// ---------- bullets ----------
-const Bullets = {
-  list: [], free: [],
-  reset() { this.free.push(...this.list); this.list.length = 0; },
-  spawn(x, y, ang, spd, g, enemy, o) {
-    if (this.list.length > 900) return;
-    const b = this.free.pop() || { hit: [] };
-    b.x = x; b.y = y; b.px = x; b.py = y; b.vx = Math.cos(ang) * spd; b.vy = Math.sin(ang) * spd;
-    b.enemy = enemy; b.hit.length = 0; b.dead = false;
-    if (enemy) { b.dmg = o.dmg; b.life = o.life || 2.5; b.r = o.r || 6; b.color = o.color || '#ff4f5e'; b.pierce = 0; b.rico = 0; b.knock = 0; b.width = 0; b.trail = null; b.boom = false; }
-    else {
-      b.dmg = g.dmg; b.life = g.life; b.r = 4 + (g.width > 4 ? 2 : 0); b.pierce = g.pierce; b.rico = g.ricochet; b.knock = g.knock;
-      b.trail = g.trail; b.width = g.width; b.crit = g.critChance; b.critMul = g.critMul; b.rail = g.rail; b.boom = g.impactBoom; b.src = (o && o.src) || 'gun';
-    }
-    this.list.push(b);
-    return b;
-  },
-  update(dt) {
-    const L = this.list;
-    for (let i = L.length - 1; i >= 0; i--) {
-      const b = L[i];
-      b.life -= dt; b.px = b.x; b.py = b.y;
-      if (b.life > 0 && !b.dead) {
-        const dist = Math.hypot(b.vx, b.vy) * dt, steps = Math.max(1, Math.ceil(dist / 10));
-        for (let s = 0; s < steps && !b.dead; s++) {
-          const ox = b.x, oy = b.y;
-          b.x += b.vx * dt / steps; b.y += b.vy * dt / steps;
-          const tx = Math.floor(b.x / TILE), ty = Math.floor(b.y / TILE), o = objAt(tx, ty);
-          if (o !== O_NONE) { this.hitTile(b, o, tx, ty, ox, oy); continue; }
-          if (b.enemy) {
-            if (dist2(b.x, b.y, player.x, player.y) < (b.r + player.r - 3) ** 2) { b.dead = true; Game.hurtPlayer(b.dmg, Math.atan2(b.vy, b.vx)); FX.impact(b.x, b.y, Math.atan2(b.vy, b.vx), 'flesh'); }
-          } else this.hitEnemies(b);
-        }
-      }
-      if (b.life <= 0 || b.dead) { L[i] = L[L.length - 1]; L.pop(); this.free.push(b); }
-    }
-  },
-  hitTile(b, o, tx, ty, ox, oy) {
-    const ang = Math.atan2(b.vy, b.vx);
-    if (o === O_GLASS) { damageTile(tx, ty, 1, b.x, b.y, ang); b.vx *= 0.85; b.vy *= 0.85; return; }
-    if (o === O_CRATE || o === O_BARREL) {
-      damageTile(tx, ty, b.enemy ? b.dmg * 0.5 : b.dmg, b.x, b.y, ang);
-      FX.impact(ox, oy, ang, o === O_BARREL ? 'metal' : 'wood');
-      if (!b.enemy && b.boom) Game.explosion(ox, oy, 70, b.dmg * 0.6, 'round');
-      b.dead = true; return;
-    }
-    const metal = o === O_METAL;
-    if (!b.enemy && b.rico > 0) {
-      b.rico--;
-      const hx = objAt(Math.floor(b.x / TILE), Math.floor(oy / TILE)) !== O_NONE;
-      const hy = objAt(Math.floor(ox / TILE), Math.floor(b.y / TILE)) !== O_NONE;
-      if (hx || !hy) b.vx = -b.vx;
-      if (hy || !hx) b.vy = -b.vy;
-      b.x = ox; b.y = oy; b.hit.length = 0; b.life = Math.max(b.life, 0.4);
-      FX.impact(ox, oy, ang, 'metal'); Sound.wall(true);
-      return;
-    }
-    b.dead = true;
-    FX.impact(ox, oy, ang, metal ? 'metal' : o === O_FURN ? 'wood' : 'wall');
-    if (!b.enemy) { Decals.add('hole', ox, oy, rand(TAU)); if (Math.random() < 0.3) Sound.wall(metal); if (b.boom) Game.explosion(ox, oy, 70, b.dmg * 0.6, 'round'); }
-  },
-  hitEnemies(b) {
-    Grid.query(b.x, b.y, 40, e => {
-      if (b.dead || e.dead || b.hit.includes(e.id)) return;
-      if (dist2(b.x, b.y, e.x, e.y) > (e.r + b.r) ** 2) return;
-      const ang = Math.atan2(b.vy, b.vx);
-      const crit = Math.random() < b.crit;
-      const dmg = b.dmg * (crit ? b.critMul : 1) * rand(0.92, 1.08);
-      Game.damageEnemy(e, dmg, ang, b.knock, crit, b.src);
-      if (b.boom) Game.explosion(b.x, b.y, 80, b.dmg * 0.5, 'round');
-      if (player.S.chain && b.src === 'gun' && Math.random() < 0.12 * player.S.chain) Game.chainLightning(e, b.dmg * 0.6, 2 + player.S.chain);
-      b.hit.push(e.id);
-      if (b.pierce > 0) { b.pierce--; b.dmg *= 0.9; return; }
-      if (b.rico > 0) {
-        b.rico--;
-        let best = null, bd = 420 * 420;
-        Grid.query(b.x, b.y, 420, o => { if (o === e || o.dead || b.hit.includes(o.id)) return; const d = dist2(b.x, b.y, o.x, o.y); if (d < bd && lineOfSight(b.x, b.y, o.x, o.y)) { bd = d; best = o; } });
-        if (best) { const sp = Math.hypot(b.vx, b.vy), na = Math.atan2(best.y - b.y, best.x - b.x); b.vx = Math.cos(na) * sp; b.vy = Math.sin(na) * sp; b.life = Math.max(b.life, 0.5); FX.add(P_RING, b.x, b.y, 0, 0, 0.15, 14, '#bfe9ff', { lw: 2 }); return; }
-      }
-      b.dead = true;
-    });
-  },
-  draw(v) {
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.lineCap = 'round';
-    for (const b of this.list) {
-      if (b.x < v.x0 || b.x > v.x1 || b.y < v.y0 || b.y > v.y1) continue;
-      if (b.enemy) {
-        glow(b.color === '#ff4f5e' ? GLOW.red : GLOW.violet, b.x, b.y, b.r * 3.4, 0.9);
-        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 0.55, 0, TAU); ctx.fill();
-        continue;
-      }
-      const sp = Math.hypot(b.vx, b.vy), tl = Math.min(b.rail ? 0.045 : 0.03, b.life + 0.02) * sp;
-      const tx = b.x - b.vx / sp * tl, ty = b.y - b.vy / sp * tl;
-      ctx.strokeStyle = b.trail; ctx.globalAlpha = 0.55; ctx.lineWidth = b.width * 2.4;
-      ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(b.x, b.y); ctx.stroke();
-      ctx.strokeStyle = '#fffbe8'; ctx.globalAlpha = 1; ctx.lineWidth = b.width * 0.8;
-      ctx.beginPath(); ctx.moveTo(lerp(tx, b.x, 0.4), lerp(ty, b.y, 0.4)); ctx.lineTo(b.x, b.y); ctx.stroke();
-    }
-    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
-  },
-};
-
-// ---------- blades & drones ----------
-function bladePos(p, i) {
-  const n = p.S.blades, a = p.bladeAng + i * TAU / n, r = 70 + n * 3;
-  return [p.x + Math.cos(a) * r, p.y + Math.sin(a) * r, a];
+function radialBarrage(p) {
+  const tpl = Object.assign(bulletTemplate(p, 0.5), { canFrag: false });
+  for (let i = 0; i < 18; i++) Bullets.player(p.x, p.y, p.a + i / 18 * TAU, p.gun.speed * 0.8, tpl);
+  FX.add(P_RING, p.x, p.y, 0, 0, 0.35, 90, '#ffd23f', { lw: 6 }); Sound.explode(); Game.shake(4);
 }
-function updateBlades(p, dt) {
-  const dmg = 16 * (0.6 + p.S.dmgMul * 0.4);
-  for (let i = 0; i < p.S.blades; i++) {
-    const [bx, by, a] = bladePos(p, i);
-    Grid.query(bx, by, 50, e => {
-      if (e.dead || e.bladeCd > 0 || dist2(bx, by, e.x, e.y) > (e.r + 16) ** 2) return;
-      e.bladeCd = 0.28;
-      Game.damageEnemy(e, dmg, a + Math.PI / 2, 140, false, 'blade');
-      FX.impact(bx, by, a, 'metal');
-    });
-  }
+function phantomPos(p, i) {
+  const s = i ? 1 : -1, ca = Math.cos(p.a), sa = Math.sin(p.a);
+  return [p.x - ca * 22 - sa * 46 * s, p.y - sa * 22 + ca * 46 * s];
 }
-function updateDrone(p, d, i, dt) {
-  d.t += dt;
-  const n = p.drones.length, a = d.t * 1.3 + i * TAU / n;
-  const tx = p.x + Math.cos(a) * 46, ty = p.y + Math.sin(a) * 46 - 8;
-  d.x += (tx - d.x) * damp(8, dt); d.y += (ty - d.y) * damp(8, dt);
-  d.cd -= dt;
-  let best = null, bd = 430 * 430;
-  Grid.query(d.x, d.y, 430, e => { if (e.dead) return; const q = dist2(d.x, d.y, e.x, e.y); if (q < bd) { bd = q; best = e; } });
-  if (best) d.a = Math.atan2(best.y - d.y, best.x - d.x);
-  if (best && d.cd <= 0 && lineOfSight(d.x, d.y, best.x, best.y)) {
-    d.cd = 0.42;
-    const g = { dmg: 13 * (0.5 + p.S.dmgMul * 0.5), life: 0.6, width: 2, pierce: 0, ricochet: 0, knock: 60, trail: '#5ff4ff', critChance: p.gun.critChance, critMul: p.gun.critMul };
-    Bullets.spawn(d.x, d.y, d.a + rand(-0.04, 0.04), 1000, g, false, { src: 'drone' });
-    FX.light(d.x, d.y, 30, 0.05, GLOW.xp, 0.6);
-    Sound.shoot('smg');
-  }
-}
-function drawBladesDrones(p) {
-  if (p.S.blades) {
-    ctx.globalCompositeOperation = 'lighter';
-    for (let i = 0; i < p.S.blades; i++) { const [bx, by] = bladePos(p, i); glow(GLOW.xp, bx, by, 26, 0.45); }
-    ctx.globalCompositeOperation = 'source-over';
-    for (let i = 0; i < p.S.blades; i++) {
-      const [bx, by, a] = bladePos(p, i);
-      ctx.save(); ctx.translate(bx, by); ctx.rotate(a * 3);
-      ctx.fillStyle = '#e8fbff'; ctx.strokeStyle = OUTLINE; ctx.lineWidth = 2.5;
-      ctx.beginPath(); for (let k = 0; k < 3; k++) { const q = k * TAU / 3; ctx.moveTo(Math.cos(q) * 4, Math.sin(q) * 4); ctx.lineTo(Math.cos(q + 0.25) * 17, Math.sin(q + 0.25) * 17); ctx.lineTo(Math.cos(q + 0.9) * 5, Math.sin(q + 0.9) * 5); }
-      ctx.closePath(); ctx.fill(); ctx.stroke();
-      ctx.restore();
-    }
-  }
-  for (const d of p.drones) {
-    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(d.x + 10, d.y + 18, 10, 6, 0, 0, TAU); ctx.fill();
-    ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.a);
-    ctx.strokeStyle = OUTLINE; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(-9, -9); ctx.lineTo(9, 9); ctx.moveTo(9, -9); ctx.lineTo(-9, 9); ctx.stroke();
-    for (const [qx, qy] of [[-9, -9], [9, -9], [-9, 9], [9, 9]]) { ctx.fillStyle = 'rgba(200,240,255,0.35)'; ctx.beginPath(); ctx.arc(qx, qy, 6, 0, TAU); ctx.fill(); }
-    ctx.fillStyle = '#2b3a4a'; ctx.beginPath(); ctx.rect(-6, -6, 12, 12); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#5ff4ff'; ctx.fillRect(4, -2, 6, 4);
-    ctx.restore();
+function phantomVolley(p) {
+  for (let i = 0; i < 2; i++) {
+    const [x, y] = phantomPos(p, i);
+    if (solidAt(x, y)) continue;
+    const a = Math.atan2(mouse.y - y, mouse.x - x);
+    Bullets.player(x, y, a, p.gun.speed, Object.assign(bulletTemplate(p, 0.6), { trail: '#c49bff', seek: true, canFrag: false, src: 'phantom' }));
+    FX.light(x, y, 40, 0.06, GLOW.violet, 0.7);
   }
 }
 
-// ---------- pickups: XP gems + health ----------
-const GEM_TIERS = [[25, 9, '#ff4fd8', GLOW.violet], [5, 7, '#7c8cff', GLOW.xp], [1, 5, '#2ef2ff', GLOW.xp]];
-const Pickups = {
-  list: [],
-  reset() { this.list.length = 0; },
-  gems(x, y, value) {
-    let v = Math.max(1, Math.round(value));
-    for (const [tv, size, col, gl] of GEM_TIERS) {
-      while (v >= tv) {
-        v -= tv;
-        const a = rand(TAU), s = rand(80, 220);
-        this.list.push({ kind: 'xp', x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, z: 0, vz: rand(120, 220), value: tv, size, col, gl, t: rand(TAU), mag: false, age: 0 });
-      }
-    }
-    if (this.list.length > 320) for (let i = 0; i < 60; i++) if (this.list[i].kind === 'xp') this.list[i].mag = true;   // vacuum old gems toward the player
-  },
-  health(x, y, amt = 25) { this.list.push({ kind: 'hp', x, y, vx: rand(-60, 60), vy: rand(-60, 60), z: 0, vz: 180, value: amt, size: 10, t: 0, mag: false, age: 0 }); },
-  update(dt, p) {
-    const R = 95 * p.S.magnet;
-    for (let i = this.list.length - 1; i >= 0; i--) {
-      const g = this.list[i];
-      g.t += dt * 4; g.age += dt;
-      if (g.z > 0 || g.vz > 0) { g.vz -= 800 * dt; g.z += g.vz * dt; if (g.z < 0) { g.z = 0; g.vz = Math.abs(g.vz) > 50 ? -g.vz * 0.45 : 0; } }
-      const d2 = dist2(g.x, g.y, p.x, p.y);
-      if (!g.mag && g.age > 0.25 && d2 < R * R && (g.kind === 'xp' || p.hp < p.maxHp)) g.mag = true;
-      if (g.mag) {
-        // direct homing that speeds up over time; swept pickup so fast gems can't orbit the player
-        const d = Math.sqrt(d2) || 1;
-        g.spd = Math.min(1600, (g.spd || 260) + 2200 * dt);
-        if (d < p.r + 10 + g.spd * dt) { this.collect(g, p); this.list[i] = this.list[this.list.length - 1]; this.list.pop(); continue; }
-        g.vx = (p.x - g.x) / d * g.spd; g.vy = (p.y - g.y) / d * g.spd;
-        g.x += g.vx * dt; g.y += g.vy * dt;
-      } else {
-        g.vx *= Math.exp(-4 * dt); g.vy *= Math.exp(-4 * dt);
-        const nx = g.x + g.vx * dt, ny = g.y + g.vy * dt;
-        if (!solidAt(nx, g.y)) g.x = nx; else g.vx = -g.vx;
-        if (!solidAt(g.x, ny)) g.y = ny; else g.vy = -g.vy;
-      }
-    }
-  },
-  collect(g, p) {
-    if (g.kind === 'hp') {
-      p.hp = Math.min(p.maxHp, p.hp + g.value); FX.text(p.x, p.y - 26, '+' + g.value + ' HP', '#52f08a', 18);
-      FX.sparkle(p.x, p.y, '#7dffa8', 12, 200); Sound.levelUp(); return;
-    }
-    p.pickStreak++; p.pickT = 0.6;
-    Game.addXp(g.value);
-    FX.sparkle(g.x, g.y, g.col, g.value >= 5 ? 8 : 4, 120);
-    Sound.pickup(p.pickStreak);
-  },
-  draw(v, time) {
-    for (const g of this.list) {
-      if (g.x < v.x0 || g.x > v.x1 || g.y < v.y0 || g.y > v.y1) continue;
-      const y = g.y - g.z * 0.3, pulse = 1 + Math.sin(g.t) * 0.12;
-      if (g.kind === 'hp') {
-        ctx.globalCompositeOperation = 'lighter'; glow(GLOW.green, g.x, y, 30, 0.5); ctx.globalCompositeOperation = 'source-over';
-        ctx.fillStyle = '#f4f6fb'; ctx.strokeStyle = OUTLINE; ctx.lineWidth = 3;
-        rr(ctx, g.x - 11, y - 11, 22, 22, 4); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = '#e8283c'; ctx.fillRect(g.x - 3, y - 8, 6, 16); ctx.fillRect(g.x - 8, y - 3, 16, 6);
-        continue;
-      }
-      ctx.globalCompositeOperation = 'lighter'; glow(g.gl, g.x, y, g.size * 3.2 * pulse, 0.55); ctx.globalCompositeOperation = 'source-over';
-      const s = g.size * pulse;
-      ctx.save(); ctx.translate(g.x, y); ctx.rotate(Math.sin(g.t * 0.5) * 0.4);
-      ctx.fillStyle = g.col; ctx.strokeStyle = '#06262b'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(0, -s * 1.3); ctx.lineTo(s, 0); ctx.lineTo(0, s * 1.3); ctx.lineTo(-s, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.beginPath(); ctx.moveTo(0, -s * 1.1); ctx.lineTo(s * 0.45, -s * 0.1); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill();
-      ctx.restore();
-    }
-  },
-};
-function spawnHealth(x, y, amt) { Pickups.health(x, y, amt); }
-
-// ---------- hazards: afterburner fire ----------
-const Hazards = {
-  list: [],
-  reset() { this.list.length = 0; },
-  fire(x, y, dps) { if (this.list.length < 140) this.list.push({ x, y, r: 26, life: 1.6, max: 1.6, dps, t: 0 }); },
-  update(dt) {
-    for (let i = this.list.length - 1; i >= 0; i--) {
-      const h = this.list[i]; h.life -= dt; h.t -= dt;
-      if (h.life <= 0) { this.list.splice(i, 1); continue; }
-      if (Math.random() < dt * 14) FX.add(P_EMBER, h.x + rand(-14, 14), h.y + rand(-14, 14), rand(-20, 20), rand(-60, -20), rand(0.3, 0.6), rand(3, 6), Math.random() < 0.5 ? '#ff8a1f' : '#ffd23f', { drag: 2 });
-      if (h.t <= 0) {
-        h.t = 0.2;
-        Grid.query(h.x, h.y, h.r + 30, e => { if (!e.dead && dist2(h.x, h.y, e.x, e.y) < (h.r + e.r) ** 2) Game.damageEnemy(e, h.dps * 0.2, 0, 0, false, 'fire'); });
-      }
-    }
-  },
-  draw(v) {
-    ctx.globalCompositeOperation = 'lighter';
-    for (const h of this.list) { if (h.x < v.x0 || h.x > v.x1 || h.y < v.y0 || h.y > v.y1) continue; glow(GLOW.fire, h.x, h.y, h.r * 1.8, (h.life / h.max) * 0.7); }
-    ctx.globalCompositeOperation = 'source-over';
-  },
-};
+function drawPlayer(p, time) {
+  if (Game.state === 'dead' || Game.state === 'dying') return;
+  const look = lookToOpts(playerLook);
+  for (const g of p.ghosts) {
+    ctx.globalAlpha = (g.life / 0.28) * 0.45;
+    drawHuman(ctx, g.x, g.y, Object.assign({}, look, { a: g.a, jacket: '#5ff4ff', skin: '#bff9ff', hair: '#5ff4ff', pants: '#5ff4ff', vest: null, backpack: null, weapon: p.weapon }));
+  }
+  ctx.globalAlpha = 1;
+  if (p.gun.phantom) for (let i = 0; i < 2; i++) {
+    const [x, y] = phantomPos(p, i);
+    ctx.globalAlpha = 0.35 + Math.sin(time * 6 + i) * 0.1;
+    drawHuman(ctx, x, y, Object.assign({}, look, { a: p.a, jacket: '#c49bff', skin: '#e6d6ff', hair: '#c49bff', pants: '#8a6bd6', weapon: p.weapon, scale: 0.9 }));
+    ctx.globalAlpha = 1;
+  }
+  ctx.globalCompositeOperation = 'lighter';
+  if (p.glowT > 0 || Game.levelFlash > 0) glow(p.overclockT > 0 ? GLOW.fire : p.transformT > 0 ? GLOW.gold : GLOW.xp, p.x, p.y, 60 + Game.levelFlash * 60 + p.transformT * 60, 0.45 + Game.levelFlash * 0.4);
+  if (p.dashT > 0) glow(GLOW.xp, p.x, p.y, 50, 0.6);
+  if (buff(p, 'mayhem')) glow(GLOW.magenta, p.x, p.y, 70 + Math.sin(time * 12) * 8, 0.5);
+  if (lastStandOn(p)) glow(GLOW.red, p.x, p.y, 54, 0.35 + Math.sin(time * 8) * 0.15);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.strokeStyle = look.accent ? look.accent + '88' : 'rgba(46,242,255,0.35)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(p.x, p.y, 22, 0, TAU); ctx.stroke();
+  if (p.shield > 0) {
+    ctx.strokeStyle = `rgba(120,200,255,${0.4 + Math.min(0.5, p.shield / 40)})`; ctx.lineWidth = 3 + Math.min(4, p.shield / 10);
+    ctx.beginPath(); ctx.arc(p.x, p.y, 26, 0, TAU); ctx.stroke();
+  }
+  const blink = p.hurtT > 0 && Math.floor(time * 30) % 2 === 0;
+  const ma = Math.atan2(p.vy, p.vx), lx = Math.cos(ma) * p.lean * 2, ly = Math.sin(ma) * p.lean * 2;
+  drawHuman(ctx, p.x + lx, p.y + ly, Object.assign({}, look, {
+    a: p.a, phase: p.phase, moving: Math.hypot(p.vx, p.vy) > 40, scale: 1.05,
+    weapon: p.weapon, flash: blink, recoil: p.recoil, altRecoil: p.altRecoil, evolved: p.gun.evolved,
+    sx: 1 + p.squash * 0.15, sy: 1 - p.squash * 0.1,
+  }));
+  if (p.transformT > 0) {   // evolution transformation burst
+    const t = p.transformT;
+    ctx.strokeStyle = `rgba(255,201,60,${t})`; ctx.lineWidth = 4;
+    for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(p.x, p.y, 30 + (1 - t) * 120 + i * 18, 0, TAU); ctx.stroke(); }
+  }
+  drawBladesDrones(p);
+}

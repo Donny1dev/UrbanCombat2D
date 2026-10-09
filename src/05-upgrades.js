@@ -1,120 +1,125 @@
-// ===================== WEAPONS, EVOLUTIONS, UPGRADES =====================
-const WEAPONS = {
-  pistol: { name: 'Pistol', dmg: 24, rate: 6.5, mag: 12, reload: 0.85, spread: 0.035, speed: 1150, pellets: 1, pierce: 0, knock: 140, life: 0.9, trail: '#ffd27a', width: 3, shake: 1.6, recoil: 5 },
-  smg: { name: 'SMG', dmg: 12, rate: 15, mag: 40, reload: 1.05, spread: 0.11, speed: 1080, pellets: 1, pierce: 0, knock: 80, life: 0.75, trail: '#ffb347', width: 2.5, shake: 1.1, recoil: 3 },
-  rifle: { name: 'Assault Rifle', dmg: 21, rate: 9, mag: 30, reload: 1.15, spread: 0.04, speed: 1350, pellets: 1, pierce: 1, knock: 130, life: 0.9, trail: '#ffe07a', width: 3, shake: 1.8, recoil: 5 },
-  shotgun: { name: 'Shotgun', dmg: 14, rate: 1.7, mag: 6, reload: 0.95, spread: 0.42, speed: 980, pellets: 7, pierce: 0, knock: 260, life: 0.36, trail: '#ffc060', width: 2.5, shake: 6, recoil: 10, shell: true },
-  dual: { name: 'Dual Pistols', dmg: 15, rate: 12, mag: 28, reload: 1.0, spread: 0.07, speed: 1150, pellets: 1, pierce: 0, knock: 100, life: 0.85, trail: '#ffd27a', width: 2.5, shake: 1.3, recoil: 5 },
-  heavy: { name: 'Heavy Rifle', dmg: 75, rate: 2.1, mag: 8, reload: 1.35, spread: 0.012, speed: 1750, pellets: 1, pierce: 4, knock: 320, life: 1.0, trail: '#fff0b0', width: 5, shake: 5, recoil: 11 },
+// ===================== UPGRADE DEFINITIONS (data only) =====================
+// Each upgrade's `apply(S, r)` is a pure function of its rank, so stats can always be rebuilt from scratch.
+const CATS = {
+  ballistics: { name: 'Ballistics', col: '#ff9a1f' },
+  firepower: { name: 'Firepower', col: '#ff4f5e' },
+  mobility: { name: 'Mobility', col: '#2ef2ff' },
+  survival: { name: 'Survival', col: '#52f08a' },
+  technology: { name: 'Technology', col: '#8c7bff' },
+  elemental: { name: 'Elemental', col: '#ff4fd8' },
+  utility: { name: 'Utility', col: '#e8e4d8' },
 };
-const EVOS = [
-  { id: 'hose', weapon: 'smg', req: 'rapid', n: 2, name: 'BULLET HOSE', desc: 'SMG evolves: torrential fire rate, 100-round drum, golden tracers.', hue: 'gold',
-    mod: w => { w.rate *= 1.75; w.dmg *= 1.25; w.mag = Math.round(w.mag * 2.5); w.spread *= 0.8; w.trail = '#ffd23f'; w.width = 3; } },
-  { id: 'devastator', weapon: 'shotgun', req: 'multi', n: 2, name: 'DEVASTATOR', desc: 'Shotgun evolves: +5 pellets, brutal knockback, longer reach.', hue: 'fire',
-    mod: w => { w.pellets += 5; w.dmg *= 1.4; w.knock *= 2.2; w.life *= 1.45; w.trail = '#ff7a2f'; w.width = 3.5; w.shake = 9; } },
-  { id: 'railstorm', weapon: 'rifle', req: 'pierce', n: 2, name: 'RAILSTORM', desc: 'Rifle evolves: hypersonic rails that tear through 6 more enemies.', hue: 'cyan',
-    mod: w => { w.speed *= 1.8; w.pierce += 6; w.dmg *= 1.5; w.trail = '#5ff4ff'; w.width = 4; w.rail = true; } },
-  { id: 'executioner', weapon: 'pistol', req: 'crit', n: 2, name: 'EXECUTIONER', desc: 'Pistol evolves: huge damage, +20% crit chance, crits hit x3.', hue: 'red',
-    mod: w => { w.dmg *= 2.2; w.critBonus = 0.2; w.critMulBonus = 1; w.rate *= 1.15; w.trail = '#ff4f5e'; w.width = 4; w.spread = 0.01; } },
-  { id: 'twinfury', weapon: 'dual', req: 'ricochet', n: 2, name: 'TWIN FURY', desc: 'Dual Pistols evolve: faster, +2 ricochets, magenta rounds.', hue: 'violet',
-    mod: w => { w.rate *= 1.5; w.dmg *= 1.2; w.ricoBonus = 2; w.trail = '#ff4fd8'; w.width = 3; } },
-  { id: 'annihilator', weapon: 'heavy', req: 'heavy', n: 2, name: 'ANNIHILATOR', desc: 'Heavy Rifle evolves: every round detonates on impact.', hue: 'fire',
-    mod: w => { w.dmg *= 1.3; w.impactBoom = true; w.trail = '#ff9a1f'; w.width = 6; } },
-];
-const CAT_COL = { weapon: '#ff9a1f', move: '#2ef2ff', survival: '#52f08a', evo: '#ffc93c', swap: '#ff4fd8', misc: '#f4f6fb' };
-const UPGRADES = [
-  // weapon
-  { id: 'rapid', cat: 'weapon', icon: 'rapid', name: 'Rapid Fire', max: 6, desc: () => '+20% fire rate.', apply: S => S.rateMul += 0.2 },
-  { id: 'heavy', cat: 'weapon', icon: 'heavy', name: 'Heavy Rounds', max: 6, desc: () => '+25% bullet damage.', apply: S => S.dmgMul += 0.25 },
-  { id: 'multi', cat: 'weapon', icon: 'multi', name: 'Multishot', max: 4, desc: () => '+1 projectile per shot.', apply: S => S.extraProj += 1 },
-  { id: 'pierce', cat: 'weapon', icon: 'pierce', name: 'Piercing Rounds', max: 4, desc: () => 'Bullets punch through +1 enemy.', apply: S => S.pierce += 1 },
-  { id: 'ricochet', cat: 'weapon', icon: 'ricochet', name: 'Ricochet', max: 3, desc: () => 'Bullets bounce off walls and seek a new target (+1 bounce).', apply: S => S.ricochet += 1 },
-  { id: 'explosive', cat: 'weapon', icon: 'boom', name: 'Explosive Rounds', max: 4, desc: l => `Kills have a ${15 + l * 15}% chance to explode.`, apply: S => S.explosive += 1 },
-  { id: 'mag', cat: 'weapon', icon: 'mag', name: 'Extended Mag', max: 3, desc: () => '+40% magazine size.', apply: S => S.magMul += 0.4 },
-  { id: 'reload', cat: 'weapon', icon: 'reload', name: 'Quick Reload', max: 3, desc: () => 'Reload 25% faster.', apply: S => S.reloadMul *= 0.75 },
-  { id: 'crit', cat: 'weapon', icon: 'crit', name: 'Critical Strike', max: 4, desc: () => '+12% crit chance; crits deal more.', apply: S => { S.crit += 0.12; S.critMul += 0.25; } },
-  { id: 'chain', cat: 'weapon', icon: 'bolt', name: 'Chain Lightning', max: 4, desc: l => `${12 * (l + 1)}% of hits arc lightning through ${l + 3} enemies.`, apply: S => S.chain += 1 },
-  { id: 'storm', cat: 'weapon', icon: 'storm', name: 'Bullet Storm', max: 3, desc: () => '+1 projectile, +15% fire rate, wider spray.', apply: S => { S.extraProj += 1; S.rateMul += 0.15; S.stormSpread += 0.04; } },
-  { id: 'velocity', cat: 'weapon', icon: 'velocity', name: 'High Velocity', max: 3, desc: () => '+30% bullet speed, +25% knockback, +10% damage.', apply: S => { S.speedMul += 0.3; S.knockMul += 0.25; S.dmgMul += 0.1; } },
-  // movement
-  { id: 'light', cat: 'move', icon: 'boot', name: 'Lightweight', max: 4, desc: () => '+15% movement speed.', apply: S => S.moveMul += 0.15 },
-  { id: 'dashm', cat: 'move', icon: 'dash', name: 'Dash Mastery', max: 4, desc: () => 'Dash cooldown -18%.', apply: S => S.dashCd *= 0.82 },
-  { id: 'longd', cat: 'move', icon: 'longdash', name: 'Long Dash', max: 3, desc: () => '+30% dash distance.', apply: S => S.dashDist += 0.3 },
-  { id: 'afterburn', cat: 'move', icon: 'fire', name: 'Afterburner', max: 3, desc: l => `Dashing leaves a burning trail (${30 + l * 25} dmg/s).`, apply: S => S.afterburn += 1 },
-  { id: 'adren', cat: 'move', icon: 'adrenaline', name: 'Adrenaline', max: 3, desc: () => 'Kills grant a burst of speed (+30%).', apply: S => S.adren += 1 },
-  { id: 'evade', cat: 'move', icon: 'evade', name: 'Evasive', max: 4, desc: () => '+8% chance to dodge damage.', apply: S => S.evade += 0.08 },
-  { id: 'magnet', cat: 'move', icon: 'magnet', name: 'Magnetic Field', max: 4, desc: () => '+45% XP pickup radius.', apply: S => S.magnet += 0.45 },
-  { id: 'momentum', cat: 'move', icon: 'momentum', name: 'Momentum', max: 3, desc: l => `Keep moving to build up to +${(l + 1) * 12}% speed.`, apply: S => S.momentum += 1 },
-  // survival
-  { id: 'armor', cat: 'survival', icon: 'armor', name: 'Armour', max: 5, desc: () => '+25 max HP and heal 25.', apply: (S, p) => { p.maxHp += 25; p.hp = Math.min(p.maxHp, p.hp + 25); } },
-  { id: 'regen', cat: 'survival', icon: 'regen', name: 'Regeneration', max: 4, desc: () => 'Regenerate +0.8 HP per second.', apply: S => S.regen += 0.8 },
-  { id: 'vamp', cat: 'survival', icon: 'vamp', name: 'Vampirism', max: 4, desc: () => 'Each kill restores +0.8 HP.', apply: S => S.vamp += 0.8 },
-  { id: 'shock', cat: 'survival', icon: 'shock', name: 'Shockwave', max: 3, desc: () => 'Dashing releases a damaging, knockback pulse.', apply: S => S.shock += 1 },
-  { id: 'blades', cat: 'survival', icon: 'blades', name: 'Orbiting Blades', max: 5, desc: () => '+1 blade circling you, slicing enemies.', apply: S => S.blades += 1 },
-  { id: 'drone', cat: 'survival', icon: 'drone', name: 'Combat Drone', max: 3, desc: () => '+1 drone that guns down nearby enemies.', apply: S => S.drones += 1 },
-  { id: 'overclock', cat: 'survival', icon: 'overclock', name: 'Overclock', max: 3, desc: l => `Every ${30 - l * 6} kills: 5s of +70% fire rate and no reloads.`, apply: S => S.overclock += 1 },
-];
-const UPG = Object.fromEntries(UPGRADES.map(u => [u.id, u]));
+const CAT_ORDER = Object.keys(CATS);
+const RARITY_W = { common: 1, uncommon: 0.7, rare: 0.42 };
+const DASH_CD = [1.5, 1.28, 1.12, 1.0, 0.9];   // diminishing returns, floor 0.9s
 
 function freshStats() {
   return {
-    dmgMul: 1, rateMul: 1, extraProj: 0, pierce: 0, ricochet: 0, explosive: 0, magMul: 1, reloadMul: 1,
-    crit: 0.04, critMul: 2, chain: 0, stormSpread: 0, speedMul: 1, knockMul: 1,
-    moveMul: 1, dashCd: 1.5, dashDist: 1, afterburn: 0, adren: 0, evade: 0, magnet: 1, momentum: 0,
-    regen: 0, vamp: 0, shock: 0, blades: 0, drones: 0, overclock: 0,
+    dmgMul: 1, rateMul: 1, extraProj: 0, multiPenalty: 0, pierce: 0, ricochet: 0, explosive: 0, magMul: 1, reloadMul: 1,
+    crit: 0.05, critMul: 2, chain: 0, stormSpread: 0, speedMul: 1, knockMul: 1, spreadMul: 1, recoilComp: 0, calibre: 0,
+    frag: 0, accel: 0, hollow: 0, breaker: 0, lastRound: 0, firstStrike: 0, cqc: 0, marked: 0, suppress: 0, execute: 0, discipline: 0, tactical: 0,
+    moveMul: 1, dashCd: 1.5, dashDist: 1, afterburn: 0, adren: 0, evade: 0, magnet: 1, momentum: 0, slide: 0, ghost: 0, kinrec: 0,
+    fleet: 0, rungun: 0, evreload: 0, phase: 0, kinimpact: 0, secondwind: 0,
+    hpAdd: 0, regen: 0, vamp: 0, fortified: 0, ironwill: 0, laststand: 0, overheal: 0, trauma: 0, reactive: 0,
+    drones: 0, droneDmg: 1, overdrive: 0, autotarget: 0, blades: 0, orbital: 0, overclock: 0, emp: 0, shock: 0,
+    incendiary: 0, cryo: 0, static: 0, volatile: 0, elemMul: 1, elemDur: 1,
+    medic: 0, firstaid: 0, scanner: 0, emergency: 0, stimulant: 0, syn: {},
   };
 }
-// compute the effective gun from base weapon + stats + evolution
-function buildGun(p) {
-  const base = WEAPONS[p.weapon], S = p.S;
-  const w = Object.assign({ id: p.weapon }, base);
-  if (p.evolved) { const e = EVOS.find(e => e.id === p.evolved); if (e) e.mod(w); }
-  w.dmg *= S.dmgMul; w.rate *= S.rateMul; w.mag = Math.max(1, Math.round(w.mag * S.magMul)); w.reload *= S.reloadMul;
-  w.speed *= S.speedMul; w.knock *= S.knockMul; w.pierce += S.pierce;
-  w.ricochet = S.ricochet + (w.ricoBonus || 0);
-  w.critChance = Math.min(0.85, S.crit + (w.critBonus || 0)); w.critMul = S.critMul + (w.critMulBonus || 0);
-  if (p.weapon === 'shotgun') { w.pellets += S.extraProj * 2; w.fan = 0; }
-  else { w.pellets += S.extraProj; w.fan = 0.085 + S.stormSpread; }
-  w.pellets = Math.min(w.pellets, p.weapon === 'shotgun' ? 22 : 9);
-  w.spread += S.stormSpread * 0.5;
-  return w;
-}
-// build three level-up offers
-function makeOffers(p) {
-  const out = [];
-  const lv = id => p.upg[id] || 0;
-  const evo = EVOS.find(e => e.weapon === p.weapon && !p.evolved && lv(e.req) >= e.n);
-  if (evo) out.push({ kind: 'evo', id: evo.id, name: evo.name, desc: evo.desc, cat: 'evo', icon: 'star' });
-  if (out.length < 3 && p.level >= 3 && Math.random() < (p.evolved ? 0.07 : 0.2)) {
-    const opts = Object.keys(WEAPONS).filter(k => k !== p.weapon);
-    const k = pick(opts);
-    out.push({ kind: 'swap', id: k, name: WEAPONS[k].name, desc: swapDesc(k) + (p.evolved ? ' (Replaces your evolved weapon.)' : ''), cat: 'swap', icon: 'gun' });
-  }
-  const pool = UPGRADES.filter(u => lv(u.id) < u.max);
-  const weights = pool.map(u => (lv(u.id) > 0 ? 1.35 : 1) * (EVOS.some(e => e.weapon === p.weapon && e.req === u.id && !p.evolved) ? 1.6 : 1));
-  while (out.length < 3 && pool.length) {
-    let tot = weights.reduce((a, b) => a + b, 0), r = Math.random() * tot, i = 0;
-    for (; i < pool.length - 1; i++) { r -= weights[i]; if (r <= 0) break; }
-    const u = pool[i];
-    out.push({ kind: 'upg', id: u.id, name: u.name, desc: u.desc(lv(u.id)), cat: u.cat, icon: u.icon, lvl: lv(u.id), max: u.max });
-    pool.splice(i, 1); weights.splice(i, 1);
-  }
-  while (out.length < 3) out.push(out.some(o => o.id === 'medkit')
-    ? { kind: 'misc', id: 'rations', name: 'Field Rations', desc: '+10 max HP.', cat: 'misc', icon: 'regen' }
-    : { kind: 'misc', id: 'medkit', name: 'Med Kit', desc: 'Restore 50% of your health.', cat: 'misc', icon: 'heal' });
-  return out.sort(() => Math.random() - 0.5);
-}
-function swapDesc(k) {
-  return { pistol: 'Fast, accurate and balanced.', smg: 'Extremely rapid automatic fire.', rifle: 'Powerful, accurate auto fire that pierces.', shotgun: 'Close-range spread with huge knockback.', dual: 'Alternating rapid shots from both hands.', heavy: 'Slow, devastating rounds that pierce 4 enemies.' }[k] + ' Upgrades carry over.';
-}
-function applyOffer(p, o) {
-  if (o.kind === 'upg') { p.upg[o.id] = (p.upg[o.id] || 0) + 1; UPG[o.id].apply(p.S, p); }
-  else if (o.kind === 'evo') { p.evolved = o.id; }
-  else if (o.kind === 'swap') { p.weapon = o.id; p.evolved = null; }
-  else if (o.id === 'medkit') p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.5);
-  else if (o.id === 'rations') { p.maxHp += 10; p.hp += 10; }
-  const prevMag = p.gun ? p.gun.mag : 0;
-  p.gun = buildGun(p);
-  if (o.kind === 'swap' || o.kind === 'evo') { p.ammo = p.gun.mag; p.reloading = 0; }
-  else if (p.gun.mag > prevMag) p.ammo += p.gun.mag - prevMag;
-}
+const pct = v => Math.round(v * 100) + '%';
+const has = (p, id, n = 1) => (p.upg[id] || 0) >= n;
+const anyElem = p => has(p, 'incendiary') || has(p, 'cryo') || has(p, 'static') || has(p, 'chain') || has(p, 'explosive');
+function U(id, cat, name, max, rarity, desc, fx, apply, extra = {}) { return Object.assign({ id, cat, name, max, rarity, desc, fx, apply, icon: id }, extra); }
+
+const UPGRADES = [
+  // ---------------- BALLISTICS ----------------
+  U('multi', 'ballistics', 'Multishot', 3, 'uncommon', 'Fire extra projectiles in a fan. Extra bullets spread wider and hit a little softer.',
+    r => `+${r} projectile${r > 1 ? 's' : ''}, -${8 * r}% damage each`, (S, r) => { S.extraProj += r; S.multiPenalty += 0.08 * r; }),
+  U('pierce', 'ballistics', 'Piercing Rounds', 4, 'common', 'Bullets punch through enemies, losing 15% damage per penetration.',
+    r => `Pierce ${r} enem${r > 1 ? 'ies' : 'y'}`, (S, r) => { S.pierce += r; }),
+  U('ricochet', 'ballistics', 'Ricochet', 3, 'uncommon', 'Bullets bounce off walls and seek a nearby target at 80% damage.',
+    r => `${r} bounce${r > 1 ? 's' : ''}`, (S, r) => { S.ricochet += r; }),
+  U('velocity', 'ballistics', 'High Velocity', 3, 'common', 'Faster bullets that hit harder and shove further.',
+    r => `+${25 * r}% bullet speed, +${20 * r}% knockback, +${6 * r}% dmg`, (S, r) => { S.speedMul += 0.25 * r; S.knockMul += 0.2 * r; S.dmgMul += 0.06 * r; }),
+  U('storm', 'ballistics', 'Bullet Storm', 3, 'rare', 'A heavier spray: extra projectiles and fire rate with wider spread.',
+    r => `+${Math.ceil(r / 2) + (r === 3 ? 1 : 0)} projectiles, +${10 * r}% fire rate`, (S, r) => { S.extraProj += Math.ceil(r / 2) + (r === 3 ? 1 : 0); S.rateMul += 0.1 * r; S.stormSpread += 0.03 * r; }, { icon: 'storm' }),
+  U('precision', 'ballistics', 'Precision Training', 3, 'common', 'Tighter spread and steadier aim.',
+    r => `-${18 * r}% spread, +${5 * r}% bullet speed`, (S, r) => { S.spreadMul *= 1 - 0.18 * r; S.speedMul += 0.05 * r; }),
+  U('recoil', 'ballistics', 'Recoil Compensation', 3, 'common', 'Holding the trigger steadily tightens your spread.',
+    r => `Up to -${25 + 15 * r}% spread while firing`, (S, r) => { S.recoilComp = 0.25 + 0.15 * r; }),
+  U('calibre', 'ballistics', 'High Calibre', 3, 'common', 'Bigger rounds: larger hitbox, more impact force and damage.',
+    r => `+${8 * r}% dmg, +${25 * r}% knockback, bigger bullets`, (S, r) => { S.calibre = r; S.dmgMul += 0.08 * r; S.knockMul += 0.25 * r; }),
+  U('frag', 'ballistics', 'Fragmentation', 3, 'uncommon', 'Hits can burst into small shrapnel fragments.',
+    r => `${12 * r}% chance: 3 fragments`, (S, r) => { S.frag = r; }),
+  U('accel', 'ballistics', 'Bullet Accelerator', 3, 'uncommon', 'Bullets gain damage the further they travel.',
+    r => `+${6 * r}% dmg per 100px (max +${30 * r}%)`, (S, r) => { S.accel = r; }),
+  // ---------------- FIREPOWER ----------------
+  U('rapid', 'firepower', 'Rapid Fire', 5, 'common', 'Shoot faster.', r => `+${12 * r}% fire rate`, (S, r) => { S.rateMul += 0.12 * r; }),
+  U('heavy', 'firepower', 'Heavy Rounds', 5, 'common', 'Raw bullet damage.', r => `+${18 * r}% damage`, (S, r) => { S.dmgMul += 0.18 * r; }),
+  U('crit', 'firepower', 'Critical Strike', 4, 'common', 'Chance for amplified critical hits.',
+    r => `+${8 * r}% crit chance, crits x${(2 + 0.3 * r).toFixed(1)}`, (S, r) => { S.crit += 0.08 * r; S.critMul += 0.3 * r; }),
+  U('mag', 'firepower', 'Extended Mag', 3, 'common', 'Bigger magazines.', r => `+${35 * r}% magazine size`, (S, r) => { S.magMul += 0.35 * r; }),
+  U('reload', 'firepower', 'Quick Reload', 3, 'common', 'Faster reloads.', r => `-${Math.round((1 - Math.pow(0.8, r)) * 100)}% reload time`, (S, r) => { S.reloadMul *= Math.pow(0.8, r); }),
+  U('hollow', 'firepower', 'Hollow Point', 3, 'common', 'Extra damage against unarmoured enemies.', r => `+${15 * r}% vs unarmoured`, (S, r) => { S.hollow = 0.15 * r; }),
+  U('breaker', 'firepower', 'Armour Breaker', 3, 'uncommon', 'Each hit strips some of the target\'s armour.', r => `-${4 + 3 * r}% armour per hit`, (S, r) => { S.breaker = 0.04 + 0.03 * r; }),
+  U('lastround', 'firepower', 'Last Round', 3, 'common', 'The final bullet in each magazine hits much harder.', r => `Last bullet x${(1.5 + 0.75 * r).toFixed(2)} damage`, (S, r) => { S.lastRound = 0.5 + 0.75 * r; }),
+  U('firststrike', 'firepower', 'First Strike', 3, 'common', 'Your first shot after a reload deals bonus damage.', r => `First shot +${40 * r}% damage`, (S, r) => { S.firstStrike = 0.4 * r; }),
+  U('cqc', 'firepower', 'Close Quarters', 3, 'common', 'Bonus damage the closer the target is.', r => `Up to +${25 * r}% dmg point-blank`, (S, r) => { S.cqc = 0.25 * r; }),
+  U('marked', 'firepower', 'Marked Target', 3, 'uncommon', 'Repeated hits on the same target stack bonus damage.', r => `+${3 * r}% per hit (10 stacks)`, (S, r) => { S.marked = 0.03 * r; }),
+  U('suppress', 'firepower', 'Suppressive Fire', 3, 'common', 'Sustained hits slow enemies down.', r => `Hits slow up to ${15 + 10 * r}%`, (S, r) => { S.suppress = r; }),
+  U('execute', 'firepower', 'Execution Rounds', 3, 'uncommon', 'Bonus damage against badly wounded enemies.', r => `+${25 * r}% vs enemies below ${25 + 5 * r}% HP`, (S, r) => { S.execute = r; }),
+  U('discipline', 'firepower', 'Trigger Discipline', 3, 'uncommon', 'Consecutive hits without missing raise crit chance.', r => `+${1.5 * r}% crit per streak hit (max 10)`, (S, r) => { S.discipline = 0.015 * r; }),
+  U('tactical', 'firepower', 'Tactical Reload', 3, 'common', 'Reloading with ammo left (R) grants a fire-rate burst.', r => `+${15 * r}% fire rate for 4s`, (S, r) => { S.tactical = 0.15 * r; }),
+  // ---------------- MOBILITY ----------------
+  U('light', 'mobility', 'Lightweight', 4, 'common', 'Move faster.', r => `+${10 * r}% move speed`, (S, r) => { S.moveMul += 0.1 * r; }, { icon: 'boot' }),
+  U('dashm', 'mobility', 'Dash Mastery', 4, 'common', 'Shorter dash cooldown (diminishing, 0.9s floor).', r => `Dash cooldown ${DASH_CD[r]}s`, (S, r) => { S.dashCd = DASH_CD[r]; }, { icon: 'dash' }),
+  U('longd', 'mobility', 'Long Dash', 3, 'common', 'Dash further.', r => `+${25 * r}% dash distance`, (S, r) => { S.dashDist += 0.25 * r; }, { icon: 'longdash' }),
+  U('adren', 'mobility', 'Adrenaline', 3, 'common', 'Kills give a burst of speed.', r => `Kills: +${18 + 6 * r}% speed for 1.5s`, (S, r) => { S.adren = r; }, { icon: 'adrenaline' }),
+  U('evade', 'mobility', 'Evasive', 4, 'common', 'Chance to dodge damage entirely.', r => `${5 * r}% dodge chance`, (S, r) => { S.evade = 0.05 * r; }),
+  U('momentum', 'mobility', 'Momentum', 3, 'common', 'Keep moving to build speed.', r => `Up to +${8 * r}% speed`, (S, r) => { S.momentum = r; }),
+  U('slide', 'mobility', 'Combat Slide', 2, 'uncommon', 'Dashing in tight spaces becomes a longer, gliding slide.', r => `+${35 + 15 * r}% dash length near walls`, (S, r) => { S.slide = r; }),
+  U('ghost', 'mobility', 'Ghost Step', 3, 'uncommon', 'Dashing leaves a decoy that lures nearby enemies.', r => `Decoy lasts ${(1.2 + 0.4 * r).toFixed(1)}s, ${250 + 50 * r}px lure`, (S, r) => { S.ghost = r; }),
+  U('kinrec', 'mobility', 'Kinetic Recovery', 3, 'common', 'Every kill shaves time off your dash cooldown.', r => `-${(0.08 * r).toFixed(2)}s dash cooldown per kill`, (S, r) => { S.kinrec = 0.08 * r; }),
+  U('fleet', 'mobility', 'Fleet Footed', 3, 'common', 'Avoiding damage (dash or dodge) gives a speed boost.', r => `+${20 + 10 * r}% speed for 2s`, (S, r) => { S.fleet = r; }),
+  U('rungun', 'mobility', 'Run and Gun', 3, 'common', 'Sustained movement increases fire rate.', r => `Up to +${10 * r}% fire rate while moving`, (S, r) => { S.rungun = 0.1 * r; }),
+  U('evreload', 'mobility', 'Evasive Reload', 2, 'common', 'Move faster while reloading.', r => `+${20 * r}% speed while reloading`, (S, r) => { S.evreload = 0.2 * r; }),
+  U('phase', 'mobility', 'Phase Dash', 1, 'uncommon', 'Dash straight through enemy bodies (never walls).', () => 'Dash ignores enemy bodies', (S, r) => { S.phase = r; }),
+  U('kinimpact', 'mobility', 'Kinetic Impact', 3, 'uncommon', 'Dashing into enemies damages and bowls them over.', r => `${25 + 20 * r} dash collision damage`, (S, r) => { S.kinimpact = r; }),
+  U('secondwind', 'mobility', 'Second Wind', 2, 'uncommon', 'Once per wave, dropping low gives a burst of speed.', r => `+40% speed for ${3 + r}s below 35% HP`, (S, r) => { S.secondwind = r; }),
+  // ---------------- SURVIVAL ----------------
+  U('armor', 'survival', 'Armour', 5, 'common', 'More maximum health (heals the bonus on pickup).', r => `+${20 * r} max HP`, (S, r) => { S.hpAdd += 20 * r; }, { onGain: p => { p.hp += 20; } }),
+  U('regen', 'survival', 'Regeneration', 4, 'common', 'Regenerate health; doubled when out of combat for 4s.', r => `${(0.5 * r).toFixed(1)} HP/s (x2 out of combat)`, (S, r) => { S.regen = 0.5 * r; }),
+  U('vamp', 'survival', 'Vampirism', 4, 'common', 'Kills restore health, up to a per-second cap.', r => `+${(0.6 * r).toFixed(1)} HP per kill (max ${6 + 3 * r}/s)`, (S, r) => { S.vamp = r; }),
+  U('fortified', 'survival', 'Fortified', 3, 'common', 'Take less damage, move slightly slower.', r => `-${8 * r}% damage taken, -${3 * r}% speed`, (S, r) => { S.fortified = r; }),
+  U('ironwill', 'survival', 'Iron Will', 2, 'rare', 'Survive one fatal hit with 15% HP. Long cooldown.', r => `Cheat death every ${r === 1 ? 150 : 100}s`, (S, r) => { S.ironwill = r; }),
+  U('laststand', 'survival', 'Last Stand', 3, 'common', 'Extra firepower when you are on the brink.', r => `Below 30% HP: +${15 * r}% dmg and fire rate`, (S, r) => { S.laststand = 0.15 * r; }),
+  U('overheal', 'survival', 'Overheal', 3, 'uncommon', 'Excess healing becomes a temporary shield.', r => `${30 * r}% of overflow to shield (cap ${15 + 10 * r}% HP)`, (S, r) => { S.overheal = r; }),
+  U('trauma', 'survival', 'Trauma Response', 3, 'common', 'Medkits grant temporary damage resistance.', r => `Medkit: -${20 + 10 * r}% damage taken for 5s`, (S, r) => { S.trauma = r; }),
+  U('medic', 'survival', 'Field Medic', 3, 'common', 'Medkits drop more often and spawn sooner.', r => `${[1.8, 2.6, 3.5, 4.5][r]}% drop chance${r === 3 ? ', medkits also regen' : ''}`, (S, r) => { S.medic = r; }),
+  U('firstaid', 'survival', 'Advanced First Aid', 3, 'common', 'Medkits heal more.', r => `+${25 * r}% medkit healing`, (S, r) => { S.firstaid = r; }),
+  // ---------------- TECHNOLOGY ----------------
+  U('drone', 'technology', 'Combat Drone', 3, 'uncommon', 'Adds a drone; every rank also boosts all drones.', r => `${r} drone${r > 1 ? 's' : ''}, +${20 * (r - 1)}% drone dmg`, (S, r) => { S.drones = r; S.droneDmg += 0.2 * (r - 1); }),
+  U('overdrive', 'technology', 'Drone Overdrive', 3, 'uncommon', 'Drones periodically enter rapid-fire mode.', r => `Every 10s: ${2 + r}s of 3x fire rate`, (S, r) => { S.overdrive = r; }, { req: p => has(p, 'drone') }),
+  U('autotarget', 'technology', 'Automated Targeting', 2, 'common', 'Drones prioritise dangerous enemies and reach further.', r => `+${15 * r}% drone dmg, priority targeting`, (S, r) => { S.autotarget = r; S.droneDmg += 0.15 * r; }, { req: p => has(p, 'drone') }),
+  U('blades', 'technology', 'Orbiting Blades', 5, 'uncommon', 'A blade circles you, slicing enemies.', r => `${r} blade${r > 1 ? 's' : ''}`, (S, r) => { S.blades = r; }),
+  U('orbital', 'technology', 'Orbital Accelerator', 3, 'common', 'Blades spin faster, reach further and cut deeper.', r => `+${25 * r}% spin, +${20 * r}% blade dmg`, (S, r) => { S.orbital = r; }, { req: p => has(p, 'blades') }),
+  U('overclock', 'technology', 'Overclock', 3, 'uncommon', 'Kill streams trigger 5s of +70% fire rate with no reloads.', r => `Every ${35 - r * 5} kills`, (S, r) => { S.overclock = r; }),
+  U('emp', 'technology', 'EMP Dash', 2, 'uncommon', 'Dashing jams nearby gunmen and fries their bullets.', r => `Disable ranged enemies ${(1 + 0.5 * r).toFixed(1)}s in ${220 + 60 * r}px`, (S, r) => { S.emp = r; }),
+  U('shock', 'technology', 'Shockwave', 3, 'uncommon', 'Dashing releases a damaging knockback pulse.', r => `${32 * r} pulse damage`, (S, r) => { S.shock = r; }),
+  U('reactive', 'technology', 'Reactive Armour', 3, 'common', 'Taking damage releases a short-range shockwave.', r => `${20 + 15 * r} dmg burst (3s cooldown)`, (S, r) => { S.reactive = r; }),
+  // ---------------- ELEMENTAL ----------------
+  U('explosive', 'elemental', 'Explosive Rounds', 4, 'uncommon', 'Kills can detonate (explosion density is capped).', r => `${10 + 12 * r}% kill explosion chance`, (S, r) => { S.explosive = r; }, { icon: 'boom' }),
+  U('chain', 'elemental', 'Chain Lightning', 4, 'uncommon', 'Hits can arc lightning between enemies.', r => `${6 + 4 * r}% chance, ${2 + r} jumps, ${40 + 10 * r}% dmg`, (S, r) => { S.chain = r; }, { icon: 'bolt' }),
+  U('incendiary', 'elemental', 'Incendiary Rounds', 3, 'common', 'Hits set enemies on fire.', r => `Burn ${6 + 5 * r} dmg/s for 3s`, (S, r) => { S.incendiary = r; }),
+  U('cryo', 'elemental', 'Cryo Rounds', 3, 'common', 'Each hit chills; chilled enemies slow down.', r => `+${10 + 4 * r}% slow per hit (max 50%)`, (S, r) => { S.cryo = r; }),
+  U('static', 'elemental', 'Static Charge', 3, 'common', 'Hits build charge that discharges as an arc.', r => `Every ${14 - 2 * r} hits: arc to ${2 + r} enemies`, (S, r) => { S.static = r; }),
+  U('volatile', 'elemental', 'Volatile Enemies', 3, 'uncommon', 'Burning enemies may explode on death.', r => `${25 + 15 * r}% blast chance`, (S, r) => { S.volatile = r; }, { req: p => has(p, 'incendiary') }),
+  U('capacitor', 'elemental', 'Energy Capacitor', 3, 'uncommon', 'Elemental effects hit harder and last longer.', r => `+${20 * r}% elemental dmg, +${15 * r}% duration`, (S, r) => { S.elemMul += 0.2 * r; S.elemDur += 0.15 * r; }, { req: anyElem }),
+  U('afterburn', 'elemental', 'Afterburner', 3, 'common', 'Dashing leaves a burning trail.', r => `Trail burns ${30 + r * 25} dmg/s`, (S, r) => { S.afterburn = r; }, { icon: 'fire' }),
+  // ---------------- UTILITY ----------------
+  U('magnet', 'utility', 'Magnetic Field', 4, 'common', 'Bigger XP pickup radius.', r => `+${40 * r}% pickup radius`, (S, r) => { S.magnet += 0.4 * r; }),
+  U('scanner', 'utility', 'Medical Scanner', 1, 'uncommon', 'Medkits anywhere on the map are marked at the screen edge.', () => 'Track all medkits', (S, r) => { S.scanner = r; }),
+  U('emergency', 'utility', 'Emergency Supplies', 2, 'common', 'Medkits drop far more often while badly hurt.', r => `Below 40% HP: x${(1.6 + 0.6 * r).toFixed(1)} drop chance`, (S, r) => { S.emergency = r; }),
+  U('stimulant', 'utility', 'Combat Stimulant', 2, 'common', 'Big heals boost movement and reload speed.', r => `+${20 * r}% speed, -${20 * r}% reload for 4s`, (S, r) => { S.stimulant = r; }),
+];
+const UPG = Object.fromEntries(UPGRADES.map(u => [u.id, u]));

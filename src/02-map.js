@@ -521,3 +521,23 @@ function drawDynamicTiles(camX, camY, vw, vh, time) {
     }
   }
 }
+
+// reachable open tile in a distance ring around (px,py); used for medkits and supply drops
+function findReachableSpot(px, py, minD, maxD, preferOutdoor = true) {
+  let fallback = null;
+  for (let k = 0; k < 60; k++) {
+    const a = rand(TAU), r = rand(minD, maxD);
+    const tx = Math.floor((px + Math.cos(a) * r) / TILE), ty = Math.floor((py + Math.sin(a) * r) / TILE);
+    if (!inMap(tx, ty)) continue;
+    const i = idx(tx, ty);
+    if (Map.obj[i] !== 0 || Map.flow[i] === FLOW_INF) continue;
+    // keep a clear ring so pickups never sit inside or against walls
+    let clear = true;
+    for (let oy = -1; oy <= 1 && clear; oy++) for (let ox = -1; ox <= 1; ox++) if (objAt(tx + ox, ty + oy) !== O_NONE) { clear = false; break; }
+    if (!clear) continue;
+    const spot = [(tx + 0.5) * TILE, (ty + 0.5) * TILE];
+    if (!preferOutdoor || !INDOOR_FLOORS.has(Map.floor[i])) return spot;
+    fallback = fallback || spot;
+  }
+  return fallback;
+}
