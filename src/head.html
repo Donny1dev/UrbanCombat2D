@@ -1,0 +1,139 @@
+<title>Urban Combat</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Barlow+Condensed:wght@500;600;700;800&display=swap">
+<style>
+:root{
+  color-scheme: dark;
+  --ink:#0d0e12; --asphalt:#1b1d23; --panel:#15161c; --panel-2:#20222b; --line:#343744;
+  --text:#f4f6fb; --muted:#9aa0b4; --fire:#ff9a1f; --yellow:#ffd23f; --xp:#2ef2ff;
+  --danger:#ff3b4e; --heal:#52f08a; --gold:#ffc93c; --spray:#ff4fd8;
+  --display:"Bungee", Impact, "Arial Black", sans-serif;
+  --body:"Barlow Condensed", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(--text);font-family:var(--body)}
+body{position:relative;user-select:none;-webkit-user-select:none}
+#game{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:none;background:var(--ink)}
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:18px;padding-inline:16px;padding-block:24px;box-sizing:border-box;z-index:5;text-align:center;overflow-y:auto}
+.screen.dim{background:rgba(8,9,12,.62);backdrop-filter:blur(2px)}
+#title{background:
+  radial-gradient(ellipse at 50% 120%, rgba(255,154,31,.22), transparent 60%),
+  repeating-linear-gradient(90deg, transparent 0 46px, rgba(255,255,255,.025) 46px 48px),
+  repeating-linear-gradient(0deg, transparent 0 46px, rgba(255,255,255,.025) 46px 48px),
+  linear-gradient(rgba(16,17,22,.84),rgba(8,9,12,.94))}
+.logo{font-family:var(--display);font-size:clamp(44px,9vw,120px);line-height:.86;margin:0;letter-spacing:.01em;
+  color:var(--text);text-shadow:0 .06em 0 #c4410f, 0 .12em 0 #000, 0 0 40px rgba(255,154,31,.35);text-wrap:balance}
+.logo span{display:block;color:var(--fire);text-shadow:0 .06em 0 #7a1d05,0 .12em 0 #000,0 0 50px rgba(255,154,31,.5)}
+.tag{font-size:clamp(16px,2.2vw,22px);letter-spacing:.24em;text-transform:uppercase;color:var(--muted);margin:0;font-weight:600}
+.controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;max-width:760px;width:100%;margin-top:6px}
+.key{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 8px;display:flex;flex-direction:column;gap:2px}
+.key b{font-family:var(--display);font-size:15px;color:var(--yellow);font-weight:400}
+.key small{font-size:15px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;font-weight:600}
+.btn{font-family:var(--display);font-size:22px;color:#140a02;background:var(--fire);border:0;border-radius:4px;
+  padding:14px 34px;cursor:pointer;box-shadow:0 5px 0 #a3480a,0 9px 0 #000;transition:transform .08s, box-shadow .08s;letter-spacing:.03em}
+.btn:hover{background:var(--yellow)}
+.btn:active{transform:translateY(4px);box-shadow:0 1px 0 #a3480a,0 4px 0 #000}
+.btn:focus-visible,.card:focus-visible,.ghost:focus-visible{outline:3px solid var(--xp);outline-offset:3px}
+.btn.alt{background:var(--panel-2);color:var(--text);box-shadow:0 5px 0 #000}
+.row{display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
+.best{font-size:18px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;font-weight:600;min-height:1.2em}
+.best b{color:var(--xp)}
+.touchnote{color:var(--danger);font-weight:700;letter-spacing:.06em;font-size:17px}
+h2.big{font-family:var(--display);font-weight:400;margin:0;font-size:clamp(34px,6vw,64px);line-height:1;color:var(--xp);
+  text-shadow:0 4px 0 #04606a,0 8px 0 #000}
+#levelup h2.big{animation:pop .35s cubic-bezier(.2,1.6,.4,1)}
+.hint{color:var(--muted);font-size:18px;letter-spacing:.14em;text-transform:uppercase;margin:0;font-weight:600}
+#cards{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;max-width:1000px}
+.card{width:230px;max-width:100%;min-height:270px;box-sizing:border-box;background:linear-gradient(180deg,var(--panel-2),var(--panel));
+  border:2px solid var(--c,#555);border-radius:10px;padding:16px 16px 14px;color:var(--text);font-family:var(--body);
+  display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;position:relative;
+  box-shadow:0 8px 0 #000, 0 0 0 0 var(--c);transition:transform .12s, box-shadow .12s;
+  animation:deal .38s cubic-bezier(.2,1.5,.4,1) both}
+.card:nth-child(2){animation-delay:.06s}.card:nth-child(3){animation-delay:.12s}
+.card:hover,.card.hot{transform:translateY(-8px) rotate(-1deg);box-shadow:0 14px 0 #000, 0 0 34px -4px var(--c)}
+.card.picked{animation:picked .4s ease-out forwards}
+.card .num{position:absolute;top:8px;left:10px;font-family:var(--display);font-size:15px;color:var(--muted)}
+.card .cat{font-size:14px;letter-spacing:.2em;text-transform:uppercase;color:var(--c);font-weight:800}
+.card canvas{width:72px;height:72px}
+.card h3{font-family:var(--display);font-weight:400;font-size:21px;margin:0;line-height:1.05;text-wrap:balance}
+.card p{margin:0;font-size:18px;line-height:1.2;color:#cfd3e0;font-weight:500}
+.card .pips{display:flex;gap:4px;margin-top:auto}
+.card .pips i{width:14px;height:6px;border-radius:2px;background:#3a3d4a}
+.card .pips i.on{background:var(--c)}
+.card.evo{background:linear-gradient(180deg,#3a2a06,#17120a);border-width:3px}
+.card.evo::after{content:"EVOLUTION";position:absolute;top:-13px;left:50%;transform:translateX(-50%);
+  background:var(--gold);color:#1a1000;font-family:var(--display);font-size:13px;padding:3px 10px;border-radius:3px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 22px;max-width:640px;width:100%;box-sizing:border-box}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.stat{display:flex;flex-direction:column;gap:2px}
+.stat small{font-size:15px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.stat b{font-family:var(--display);font-weight:400;font-size:28px;font-variant-numeric:tabular-nums}
+.build{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:4px}
+.build span{background:var(--panel-2);border:1px solid var(--line);border-radius:4px;padding:3px 8px;font-size:16px;font-weight:600}
+.build span em{font-style:normal;color:var(--yellow)}
+#gameover h2.big{color:var(--danger);text-shadow:0 4px 0 #6a0410,0 8px 0 #000}
+.newbest{font-family:var(--display);color:var(--gold);font-size:20px;animation:pulse 1s infinite}
+.ghost{position:fixed;z-index:4;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));
+  background:rgba(20,21,28,.7);border:1px solid var(--line);color:var(--text);font-family:var(--body);font-weight:700;
+  font-size:15px;letter-spacing:.1em;padding:5px 10px;border-radius:4px;cursor:pointer;text-transform:uppercase}
+@keyframes deal{from{transform:translateY(60px) scale(.8);opacity:0}to{transform:none;opacity:1}}
+@keyframes picked{40%{transform:scale(1.12);box-shadow:0 0 60px 10px var(--c)}100%{transform:scale(1.25);opacity:0}}
+@keyframes pop{from{transform:scale(.4);opacity:0}}
+@keyframes pulse{50%{opacity:.5}}
+@media (max-width:640px){.controls{grid-template-columns:repeat(2,minmax(0,1fr))}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.card{width:100%;min-height:0}}
+@media (prefers-reduced-motion:reduce){.card,#levelup h2.big,.newbest{animation:none!important}}
+</style>
+
+<canvas id="game" aria-label="Urban Combat game view"></canvas>
+<button id="muteBtn" class="ghost" type="button" hidden>Sound: on (M)</button>
+
+<div id="title" class="screen">
+  <h1 class="logo">URBAN<span>COMBAT</span></h1>
+  <p class="tag">Streets. Warehouses. No way out.</p>
+  <div class="controls">
+    <div class="key"><b>WASD</b><small>Move</small></div>
+    <div class="key"><b>MOUSE</b><small>Aim + hold to fire</small></div>
+    <div class="key"><b>SHIFT / SPACE</b><small>Dash</small></div>
+    <div class="key"><b>R</b><small>Reload</small></div>
+    <div class="key"><b>1 2 3</b><small>Pick upgrade</small></div>
+    <div class="key"><b>ESC</b><small>Pause</small></div>
+    <div class="key"><b>M</b><small>Mute</small></div>
+    <div class="key"><b>ENTER</b><small>Quick restart</small></div>
+  </div>
+  <button id="startBtn" class="btn" type="button">DEPLOY</button>
+  <div id="bestTitle" class="best"></div>
+  <div id="touchNote" class="touchnote" hidden>Needs a keyboard and mouse — open on a desktop browser.</div>
+</div>
+
+<div id="levelup" class="screen dim" hidden>
+  <h2 class="big" id="luTitle">LEVEL UP</h2>
+  <div id="cards"></div>
+  <p class="hint">Press 1 · 2 · 3 or click a card</p>
+</div>
+
+<div id="pause" class="screen dim" hidden>
+  <h2 class="big">PAUSED</h2>
+  <div class="panel">
+    <div class="stats" id="pauseStats"></div>
+    <div class="build" id="pauseBuild"></div>
+  </div>
+  <div class="row">
+    <button id="resumeBtn" class="btn" type="button">RESUME</button>
+    <button id="restartBtn" class="btn alt" type="button">RESTART</button>
+    <button id="muteBtn2" class="btn alt" type="button">MUTE</button>
+  </div>
+</div>
+
+<div id="gameover" class="screen dim" hidden>
+  <h2 class="big">WASTED</h2>
+  <div id="newBest" class="newbest" hidden>NEW BEST RUN</div>
+  <div class="panel">
+    <div class="stats" id="goStats"></div>
+    <div class="build" id="goBuild"></div>
+  </div>
+  <button id="againBtn" class="btn" type="button">RUN IT BACK</button>
+  <p class="hint">Enter or R to restart</p>
+</div>
