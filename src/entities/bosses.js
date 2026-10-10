@@ -2,14 +2,12 @@
 //  JUGGERNAUT: slow armoured brute. Telegraphed charge -> stuns itself on walls (vulnerable); ground slam.
 //  COMMANDER : calls gunmen squads, fires controlled bursts, marks artillery zones, retreats when pressed.
 //  ENGINEER  : casts sentries + barriers (interruptible by damage), electrical line strikes.
-import { TAU, TILE, clamp, lerp, damp, angDiff, dist2, rand, vrand } from '../core/util.js';
+import { TAU, damp, angDiff, dist2, vrand } from '../core/util.js';
 import { G, W } from '../core/registry.js';
-import { ctx, R, GLOW, glow } from '../core/canvas.js';
-import { PAL } from '../core/settings.js';
+import { ctx, R } from '../core/canvas.js';
 import { Sound, Music } from '../core/audio.js';
-import { moveCircle, lineOfSight, flowDir, solidAt, findReachableSpot } from '../world/map.js';
-import { BOSSES } from '../data/enemies.js';
-import { FX, Decals, P_RING } from '../rendering/fx.js';
+import { moveCircle, flowDir, findReachableSpot } from '../world/map.js';
+import { FX, P_RING } from '../rendering/fx.js';
 import { drawHuman } from '../rendering/sprites.js';
 import { textSprite, DISPLAY } from '../rendering/textcache.js';
 import { Bullets } from './combat.js';

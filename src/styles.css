@@ -98,11 +98,14 @@ h2.big{font-family:var(--display);font-weight:400;margin:0;font-size:clamp(30px,
 .mode h4{margin:0 0 4px;font-family:var(--display);font-weight:400;font-size:16px}
 .mode p{margin:0;font-size:14px;color:var(--muted);font-weight:600;line-height:1.25}
 .mode ul{margin:6px 0 0;padding-left:16px;font-size:13px;color:#ffd9a0;font-weight:700}
+.mode:not(.on) ul{display:none}                 /* modifiers are listed on the selected mode only */
+#deployPreview{max-width:min(260px,24vh)}
+.deployActions{position:sticky;bottom:-16px;padding-block:8px;background:linear-gradient(transparent,var(--panel) 30%)}
 .kit{display:flex;flex-direction:column;gap:8px}
 .kitRow{display:flex;gap:10px;align-items:center;background:var(--panel-2);border:1px solid var(--line);border-left:4px solid var(--c,#555);border-radius:6px;padding:8px 10px}
 .kitRow canvas{width:44px;height:44px;flex:none}
 .kitRow b{font-family:var(--display);font-weight:400;font-size:16px;display:block}
-.kitRow span{font-size:14px;color:var(--muted);font-weight:600}
+.kitRow span{font-size:14px;color:var(--muted);font-weight:600;display:block;line-height:1.25}
 .kitRow small{margin-left:auto;font-weight:800;color:var(--muted);letter-spacing:.1em;text-align:right}
 #deployPreview,#profilePortrait{width:100%;max-width:260px;aspect-ratio:1;background:radial-gradient(circle at 50% 45%,#2a2d38,#121318 70%);border:1px solid var(--line);border-radius:12px}
 .items{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
@@ -250,10 +253,16 @@ textarea.save{width:100%;min-height:120px;background:#0b0c10;color:var(--text);b
 .unlocks span{background:#2a2208;border:1px solid var(--gold);color:var(--gold);border-radius:4px;padding:3px 8px;font-size:14px;font-weight:800}
 #gameover h2.big{color:var(--heal);text-shadow:0 4px 0 #0d5a2a,0 8px 0 #000}
 /* ---------- training panel ---------- */
-#trainingPanel{position:fixed;right:calc(14px + env(safe-area-inset-right,0px));bottom:110px;z-index:4;width:260px;max-height:calc(100% - 300px);overflow-y:auto;background:rgba(13,14,18,.92);border:1px solid var(--line);border-radius:10px;padding:10px 12px;text-align:left;display:flex;flex-direction:column;gap:8px;cursor:default}
+#trainingPanel{position:fixed;right:calc(14px + env(safe-area-inset-right,0px));top:178px;z-index:4;width:300px;max-height:calc(100% - 274px);overflow-y:auto;background:rgba(13,14,18,.92);border:1px solid var(--line);border-radius:10px;padding:10px 12px;text-align:left;display:flex;flex-direction:column;gap:8px;cursor:default}
 #trainingPanel h4{margin:0;font-family:var(--display);font-weight:400;font-size:14px;color:var(--xp)}
 #trainingPanel select{width:100%;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:4px;padding:4px;font-weight:700;font-size:14px}
 #trainingPanel .row{justify-content:flex-start;gap:6px}
+#trainingPanel{gap:5px}
+#trainingPanel label{font-size:11px;color:var(--muted,#9aa0b4);letter-spacing:.08em;text-transform:uppercase;margin-bottom:-3px}
+#trainingPanel select{font-size:13px;padding:3px 4px}
+#trainingPanel .trSlot{display:grid;grid-template-columns:1fr 52px 92px;gap:4px}
+#trainingPanel .trBtns{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:4px}
+#trainingPanel .trBtns .btn{padding:6px 4px;font-size:12px;min-width:0}
 @keyframes screenIn{from{opacity:0;transform:translateY(8px)}}
 @keyframes toastIn{from{opacity:0;transform:translateY(10px)}}
 @keyframes deal{from{transform:translateY(60px) scale(.8);opacity:0}to{transform:none;opacity:1}}
@@ -272,3 +281,5 @@ textarea.save{width:100%;min-height:120px;background:#0b0c10;color:var(--text);b
 @media (max-width:640px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.card{width:100%;min-height:0}.codex{grid-template-columns:minmax(0,1fr)}.modes{grid-template-columns:minmax(0,1fr)}}
 body.reduced *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition:none!important}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important}}
+/* short laptop screens (1280x720, 1366x768): tighten vertical rhythm so primary actions stay above the fold */
+@media (max-height:780px){.screen{gap:10px;padding-block:14px}}

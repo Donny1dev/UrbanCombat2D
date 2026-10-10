@@ -1,6 +1,6 @@
 // Pickups (XP, medkits, supply caches, equipment crates), hazards (fire, energy trails, enemy grenades,
 // artillery marks, line strikes) and Ghost Step decoys.
-import { TAU, TILE, dist2, lerp, rand, vrand } from '../core/util.js';
+import { TAU, dist2, lerp, rand, vrand } from '../core/util.js';
 import { G, W } from '../core/registry.js';
 import { ctx, R, GLOW, glow, makeCanvas, rr } from '../core/canvas.js';
 import { PAL } from '../core/settings.js';

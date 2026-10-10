@@ -1,6 +1,6 @@
 // In-game HUD. Text comes from the sprite cache; the upgrade inventory is cached offscreen and only rebuilt
 // when the build changes. Layout scales with the window and the HUD-scale accessibility setting.
-import { TAU, clamp, lerp, fmtTime, dist2 } from '../core/util.js';
+import { TAU, clamp, fmtTime, dist2 } from '../core/util.js';
 import { G, W } from '../core/registry.js';
 import { ctx, V, R, makeCanvas, rr } from '../core/canvas.js';
 import { Settings, PAL } from '../core/settings.js';
@@ -15,7 +15,7 @@ import { reqList, synergiesFor, evosFor } from '../systems/offers.js';
 import { cooldownOf, maxCharges } from '../systems/equipmentRules.js';
 import { iconCanvas } from './icons.js';
 import { textSprite, DISPLAY, BODY } from './textcache.js';
-import { buff, lastStandOn, harnessOn, fireRate, reloadTime, infiniteAmmo } from '../entities/player.js';
+import { buff, lastStandOn, harnessOn, reloadTime, infiniteAmmo } from '../entities/player.js';
 import { STREAKS } from '../game/game.js';
 import { EVENTS } from '../systems/director.js';
 
@@ -378,9 +378,9 @@ export const HUD = {
   },
   achievementCard(u, M, time) {
     const q = G.achievements.queue;
-    if (!this.achCard && q.length) this.achCard = { a: q.shift(), t: 4 };
+    if (!this.achCard && q.length) this.achCard = { a: q.shift(), t0: time };
     const c = this.achCard; if (!c) return;
-    c.t -= 1 / 60;
+    c.t = 4 - (time - c.t0);                          // wall-clock based: 4 s at any refresh rate
     if (c.t <= 0) { this.achCard = null; return; }
     const k = Math.min(1, (4 - c.t) / 0.3, c.t / 0.4), w = 330 * u, h = 64 * u, x = V.w - M - w * k, y = V.h * 0.32;
     panel(x, y, w, h, 8 * u, 0.94); ctx.strokeStyle = '#ffc93c'; ctx.lineWidth = 2 * u; rr(ctx, x, y, w, h, 8 * u); ctx.stroke();
@@ -392,6 +392,9 @@ export const HUD = {
   trainingPanel(x, y, u) {
     const T = G.training;
     panel(x, y, 270 * u, 92 * u, 6 * u, 0.8);
+    // keep the DOM control panel tucked under this readout at every resolution / HUD scale
+    const top = Math.round((y + 100 * u) / V.px);
+    if (top !== this.trTop) { this.trTop = top; const el = document.getElementById('trainingPanel'); el.style.top = top + 'px'; el.style.maxHeight = `calc(100% - ${top + 96}px)`; }
     txt('DPS (5s)', x + 10 * u, y + 14 * u, 11 * u, '#9aa0b4', DISPLAY, 400, 'left', false);
     txt(Math.round(T.dps), x + 10 * u, y + 40 * u, 30 * u, '#ffd23f', DISPLAY, 400, 'left', false);
     txt('PEAK ' + Math.round(T.peak), x + 150 * u, y + 30 * u, 13 * u, '#f4f6fb', BODY, 800, 'left', false);

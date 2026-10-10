@@ -6,6 +6,6 @@ export default [
       ecmaVersion: 2022, sourceType: 'module',
       globals: { ...globals.browser, __VERSION__: 'readonly', __BUILD__: 'readonly' },
     },
-    rules: { 'no-undef': 'error', 'no-unused-vars': ['warn', { args: 'none' }], 'no-dupe-keys': 'error', 'no-redeclare': 'error', 'no-unreachable': 'error' },
+    rules: { 'no-undef': 'error', 'no-unused-vars': ['warn', { args: 'none', caughtErrors: 'none' }], 'no-dupe-keys': 'error', 'no-redeclare': 'error', 'no-unreachable': 'error', 'no-shadow': 'error' },
   },
 ];

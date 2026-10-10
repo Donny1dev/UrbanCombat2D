@@ -1,10 +1,10 @@
 // Boot: wires systems into the registry, loads/migrates the save, runs the fixed-step loop, guards errors.
 import './styles.css';
 import { G, W } from './core/registry.js';
-import { Settings, QUALITY, applySettings, onSettingsChange } from './core/settings.js';
-import { canvas, resize, V } from './core/canvas.js';
-import { startLoop, Perf } from './core/loop.js';
-import { audioInit, Music } from './core/audio.js';
+import { Settings, QUALITY, onSettingsChange } from './core/settings.js';
+import { resize } from './core/canvas.js';
+import { startLoop } from './core/loop.js';
+import { audioInit } from './core/audio.js';
 import { releaseAll } from './core/input.js';
 import { generateMap } from './world/map.js';
 import { LOOK_DEFAULT } from './data/cosmetics.js';

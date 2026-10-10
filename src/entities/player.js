@@ -1,6 +1,6 @@
 // The player: movement, dash, firing, equipment-driven modifiers and drawing.
 import { TAU, damp, clamp, lerp, rand, vrand, dist2 } from '../core/util.js';
-import { G, W } from '../core/registry.js';
+import { G } from '../core/registry.js';
 import { ctx, R, GLOW, glow } from '../core/canvas.js';
 import { Settings } from '../core/settings.js';
 import { Sound } from '../core/audio.js';

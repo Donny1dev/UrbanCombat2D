@@ -1,7 +1,7 @@
 // Menu sub-screens: Deploy, Loadout, Profile, Arsenal (codex), Local Records, Achievements.
 import { G } from '../core/registry.js';
 import { Sound } from '../core/audio.js';
-import { esc, fmtTime, todayKey, TAU, clamp } from '../core/util.js';
+import { esc, fmtTime, todayKey, clamp } from '../core/util.js';
 import { prettyKey } from '../core/input.js';
 import { Settings } from '../core/settings.js';
 import { WEAPONS, WEAPON_IDS, WEAPON_COST, GUN_SHAPES } from '../data/weapons.js';

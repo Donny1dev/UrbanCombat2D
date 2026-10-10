@@ -17,8 +17,8 @@ export const EVENTS = {
 const WAVE_LEN = w => (w === 1 ? 25 : 30), LULL = 4;
 
 export const Director = {
-  t: 0, spawnT: 0, event: null, nextEvent: 95, lastEvent: null, squadT: 20, nextCrateWave: 4, waveDamage: 0,
-  reset() { Object.assign(this, { t: 0, spawnT: 1.2, event: null, nextEvent: rand(85, 105), lastEvent: null, squadT: rand(18, 26), nextCrateWave: 4, waveDamage: 0 }); },
+  t: 0, spawnT: 0, event: null, nextEvent: 95, lastEvent: null, squadT: 20, nextCrateWave: 4, eliteCrateWave: 4, waveDamage: 0,
+  reset() { Object.assign(this, { t: 0, spawnT: 1.2, event: null, nextEvent: rand(85, 105), lastEvent: null, squadT: rand(18, 26), nextCrateWave: 4, eliteCrateWave: 4, waveDamage: 0 }); },
   weights(w) {
     const m = G.game.mods;
     return {
@@ -78,7 +78,7 @@ export const Director = {
   },
   endEvent(success) {
     if (!this.event) return;
-    const def = EVENTS[this.event.type], p = W.player;
+    const def = EVENTS[this.event.type];
     if (success) {
       G.game.banner(def.name + ' CLEARED', def.color); G.game.addXp(10 + G.game.wave * 2);
       if (this.event.type === 'elite' && this.event.target) G.pickups.equipCrate(this.event.target.x, this.event.target.y, 'elite');

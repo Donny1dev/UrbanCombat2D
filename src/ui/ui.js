@@ -1,5 +1,5 @@
 // UI controller: screen routing (with a back stack), keyboard routing per state, run start/pause flows.
-import { G, W } from '../core/registry.js';
+import { G } from '../core/registry.js';
 import { Settings } from '../core/settings.js';
 import { audioInit, Sound, Music, applyVolumes } from '../core/audio.js';
 import { onPress, onBlurInput, mouse, releaseAll, prettyKey } from '../core/input.js';
@@ -16,7 +16,7 @@ export const UI = {
   current: null, stack: [], menuSel: 0, selectedMode: 'standard',
   show(id) {
     for (const s of SCREENS) $(s).hidden = s !== id;
-    this.current = id;
+    this.current = id; document.body.dataset.screen = id || 'game';
     canvas.style.cursor = id ? 'default' : 'none';
     $('trainingPanel').hidden = !(id === null && G.game.mode === 'training' && G.game.state === 'play');
     const first = id && $(id).querySelector('[data-autofocus], .btn:not(.alt), .mbtn');
@@ -133,6 +133,9 @@ $('menuBtn').addEventListener('click', () => UI.quitToMenu());
 $('redeploy').addEventListener('click', () => UI.startRun({ mode: G.game.mode }));
 $('changeLoadout').addEventListener('click', () => { UI.toMenu(); UI.openSub('loadout', 'deploy'); });
 $('goMenu').addEventListener('click', () => UI.toMenu());
+$('deployBtn').addEventListener('click', () => UI.startRun({ mode: UI.selectedMode }));
+$('toLoadout').addEventListener('click', () => { Sound.ui(); UI.openSub('loadout', 'deploy'); });
+$('loDeploy').addEventListener('click', () => { Sound.ui(); UI.stack.length = 0; UI.openSub('deploy'); });
 $('intro').addEventListener('click', () => G.scene.intro.skip());
 try { if (matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches) $('touchNote').hidden = false; } catch (e) { }
 export { esc };

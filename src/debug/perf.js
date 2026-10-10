@@ -1,15 +1,15 @@
 // F3 performance overlay + reproducible stress scenarios (window.__UC, enabled with ?bench or ?debug).
 import { G, W } from '../core/registry.js';
-import { ctx, V, R } from '../core/canvas.js';
+import { V, R } from '../core/canvas.js';
 import { Q } from '../core/settings.js';
 import { Perf } from '../core/loop.js';
 import { mouse, virtualKeys } from '../core/input.js';
-import { FX } from '../rendering/fx.js';
+import { FX, Decals } from '../rendering/fx.js';
 import { timing } from '../rendering/renderer.js';
 import { Grid } from '../systems/grid.js';
 import { Bullets } from '../entities/combat.js';
 import { spawnEnemy } from '../entities/enemies.js';
-import { applyOffer, checkSynergies } from '../systems/offers.js';
+import { applyOffer, checkSynergies, makeOffers } from '../systems/offers.js';
 import { findReachableSpot, M, MW, F_CONC } from '../world/map.js';
 import { txt, panel } from '../rendering/hud.js';
 import { BODY, DISPLAY } from '../rendering/textcache.js';
@@ -69,9 +69,76 @@ export function installBench() {
       G.ui.startRun({ mode: 'standard', quick: true }); g.addXp = () => { }; t = 0;
       scen = SC[name](W.player);
     },
+    soak: Soak,
     resetStats() { stats.upd.length = stats.ren.length = stats.dt.length = 0; stats.last = 0; Perf.reset(); },
     getStats() {
       return { upd: stats.upd.slice(), ren: stats.ren.slice(), dt: stats.dt.slice(), counts: { enemies: W.enemies.length, bullets: Bullets.list.length, particles: FX.parts.length, pickups: G.pickups.list.length }, heapMB: performance.memory ? +(performance.memory.usedJSHeapSize / 1048576).toFixed(1) : null };
     },
   };
 }
+
+// ---------------- soak / stability driver ----------------
+// Runs the real simulation far faster than real time with a simple bot. Level-ups and crates use the real
+// offer generation + apply logic (only the DOM card animation is skipped). HP is topped up when low so long
+// runs reach late waves while every damage path still executes; refills are counted and reported.
+const Soak = {
+  active: false, refillAt: 0.3, refills: 0, levelUps: 0, crates: 0, deaths: 0, gear: 0, t: 0, stepMs: 0, steps: 0,
+  hits: [], deathLog: [], crateFrom: {},
+  install() {
+    if (this.active) return;
+    this.active = true;
+    const eqc = G.pickups.equipCrate.bind(G.pickups);
+    G.pickups.equipCrate = (x, y, from = 'wave') => { this.crateFrom[from] = (this.crateFrom[from] || 0) + 1; return eqc(x, y, from); };
+    // record the last few hits so an unexpected death can be explained
+    const hurt = G.game.hurtPlayer.bind(G.game);
+    G.game.hurtPlayer = (dmg, ang, kind = {}, bullet = null, attacker = null) => {
+      const p = W.player, before = p.hp, r = hurt(dmg, ang, kind, bullet, attacker);
+      this.hits.push({ t: +G.game.time.toFixed(2), dmg: Math.round(dmg), lost: Math.round(before - p.hp), hp: Math.round(before), kind: JSON.stringify(kind).slice(0, 60), by: attacker ? attacker.type || attacker.boss : bullet ? 'bullet' : '?' });
+      if (this.hits.length > 6) this.hits.shift();
+      if (p.hp <= 0 && before > 0) this.deathLog.push({ wave: G.game.wave, hits: this.hits.slice() });
+      return r;
+    };
+    G.ui.openLevelUp = () => {
+      const p = W.player, offers = makeOffers(p, []);
+      if (offers.length) applyOffer(p, offers[(Math.random() * offers.length) | 0]);
+      G.game.pending--; this.levelUps++;
+    };
+    G.ui.openCrate = offers => { G.game.applyCrate(offers[(Math.random() * offers.length) | 0]); G.game.state = 'play'; this.crates++; };
+  },
+  start(mode = 'standard') { this.install(); G.ui.startRun({ mode, quick: true }); this.t = 0; },
+  bot(p) {
+    this.t += 1 / 60;
+    if (p.hp < p.maxHp * this.refillAt) { p.hp = p.maxHp; this.refills++; }
+    let e = null, bd = 1e12; for (const o of W.enemies) { const d = (o.x - p.x) ** 2 + (o.y - p.y) ** 2; if (d < bd) { bd = d; e = o; } }
+    mouse.down = true;
+    if (e) { mouse.sx = (e.x - G.game.cam.x) * V.zoom + V.w / 2; mouse.sy = (e.y - G.game.cam.y) * V.zoom + V.h / 2; }
+    const ph = Math.floor(this.t / 1.7) % 4; Object.assign(virtualKeys, { up: ph === 0, right: ph === 1, down: ph === 2, left: ph === 3, dash: (this.t % 5) < 0.02 });
+    if ((this.t % 3) < 1 / 60) for (const s of ['gadget', 'support']) if (p.eq[s].charges > 0 && G.equip.activate(s)) this.gear++;
+  },
+  // Advance n fixed steps. Returns the run state afterwards.
+  step(n, dt = 1 / 60) {
+    const g = G.game, t0 = performance.now();
+    for (let i = 0; i < n; i++) {
+      if (g.state === 'play') this.bot(W.player);
+      if (g.state === 'play' || g.state === 'dying') g.update(dt);
+      if (g.state === 'dead') break;
+    }
+    this.stepMs += performance.now() - t0; this.steps += n;
+    return g.state;
+  },
+  sample() {
+    const g = G.game, p = W.player;
+    return {
+      gameTime: +g.time.toFixed(1), wave: g.wave, level: p.level, hp: Math.round(p.hp), kills: g.run.kills, state: g.state, weapon: p.weapon,
+      enemies: W.enemies.length, corpses: W.corpses.length, bullets: Bullets.list.length, particles: FX.parts.length, decals: Decals.list.length,
+      pickups: G.pickups.list.length, hazards: G.hazards.list.length, timers: g.timers.length, toasts: g.toasts.length,
+      upgrades: Object.keys(p.upg).length, synergies: p.synergies.size, eq: ['armour', 'gadget', 'support'].map(s => p.eq[s].id + ':' + p.eq[s].rarity[0] + p.eq[s].rank).join(' '),
+      msPerStep: this.steps ? +(this.stepMs / this.steps).toFixed(3) : 0,
+      crateFrom: JSON.stringify(this.crateFrom), refills: this.refills, levelUps: this.levelUps, crates: this.crates, gearUses: this.gear, deaths: this.deaths,
+      domNodes: document.getElementsByTagName('*').length, toastsDom: document.getElementById('toasts').childElementCount,
+    };
+  },
+  resetTiming() { this.stepMs = 0; this.steps = 0; },
+  // Kill the player through the real damage path and run the death sequence to the results screen.
+  die() { const p = W.player; p.invuln = 0; G.game.hurtPlayer(1e9, 0); if (G.game.state === 'play') G.game.die(); this.deaths++; return this.step(600); },
+};

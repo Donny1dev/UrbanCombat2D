@@ -1,5 +1,5 @@
 // Animated menu background (the real city at night with rain, neon and distant gunfire) and the intro sequence.
-import { TAU, TILE, clamp, lerp, rand, randi, vrand } from "../core/util.js";
+import { TAU, TILE, clamp, rand, randi } from "../core/util.js";
 import { G } from "../core/registry.js";
 import { ctx, V, GLOW, glow } from "../core/canvas.js";
 import { Settings, Q } from "../core/settings.js";

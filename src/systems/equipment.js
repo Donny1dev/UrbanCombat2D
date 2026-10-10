@@ -1,8 +1,8 @@
 // Equipment runtime: activation (Q gadget / E support), cooldowns, deployables and their rank/rarity
 // mechanics, and equipment synergies. Numbers come from data/equipment.js (shared with tests/UI text).
-import { TAU, TILE, dist2, lerp, clamp, vrand, rand } from '../core/util.js';
+import { TAU, dist2, lerp, clamp, vrand } from '../core/util.js';
 import { G, W } from '../core/registry.js';
-import { ctx, R, GLOW, glow } from '../core/canvas.js';
+import { ctx, R } from '../core/canvas.js';
 import { PAL } from '../core/settings.js';
 import { Sound } from '../core/audio.js';
 import { mouse } from '../core/input.js';
@@ -12,7 +12,7 @@ import { tickCooldown, consumeCharge, canActivate, maxCharges } from './equipmen
 import { Grid } from './grid.js';
 import { FX, P_RING } from '../rendering/fx.js';
 import { drawHumanCached, lookToOpts } from '../rendering/sprites.js';
-import { Bullets, pickTarget, spawnFragments, applyBurn, applyChill, drawDrone, nearestEnemy } from '../entities/combat.js';
+import { Bullets, pickTarget, spawnFragments, applyBurn, drawDrone, nearestEnemy } from '../entities/combat.js';
 import { addBuff, buff } from '../entities/player.js';
 
 const near = [];
@@ -311,7 +311,7 @@ export const Equip = {
   },
   onAvoided(p) { if (p.S.eqSyn.eq_regenshield) p.eShieldT = p.S.shieldDelay; },
   // ---------------- drawing ----------------
-  draw(v, time, alpha) {
+  draw(view, time, alpha) {          // (not 'v': that name is the equipment stat lookup)
     const p = W.player;
     for (const b of this.bubbles) {
       ctx.fillStyle = 'rgba(46,242,255,0.08)'; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill();

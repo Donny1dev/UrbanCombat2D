@@ -5,12 +5,12 @@ import { Settings } from '../core/settings.js';
 import { Sound, Music } from '../core/audio.js';
 import { mouse } from '../core/input.js';
 import { V } from '../core/canvas.js';
-import { generateMap, generateArena, updateFlow, M } from '../world/map.js';
+import { generateMap, generateArena, updateFlow } from '../world/map.js';
 import { modifierSet, dailyConfig } from '../data/modes.js';
 import { atLeast, EQ } from '../data/equipment.js';
 import { UPG } from '../data/upgrades.js';
 import { refreshStats, incomingDamage, healResult, evoTop } from '../systems/stats.js';
-import { crateOffers, applyCrateOffer, maxCharges } from '../systems/equipmentRules.js';
+import { crateOffers, applyCrateOffer } from '../systems/equipmentRules.js';
 import { Grid } from '../systems/grid.js';
 import { FX, Decals, P_RING } from '../rendering/fx.js';
 import { GLOW } from '../core/canvas.js';
@@ -132,7 +132,8 @@ export const Game = {
     if (S.kinrec) p.dashCdT -= S.kinrec;
     if (S.overclock) { p.ocKills++; if (p.ocKills >= 35 - S.overclock * 5 && p.overclockT <= 0) { p.ocKills = 0; p.overclockT = 5; p.glowT = 5; p.glowCol = '#ff9a1f'; FX.text(p.x, p.y - 44, 'OVERCLOCK', '#ff9a1f', 24, { crit: true }); Sound.select(false); } }
     if (S.explosive && !BUDGETED.has(src) && !EXPLOSIVE_SRC.has(src) && Math.random() < 0.1 + S.explosive * 0.12) this.explosion(e.x, e.y, 85 + S.explosive * 14, (28 + S.explosive * 14) * S.dmgMul, 'round');
-    if ((e.d.elite && !e.hunted) && Math.random() < 0.08) G.pickups.equipCrate(e.x, e.y, 'elite');
+    // random elite drops: at most one per 3 waves so late waves full of elites don't flood the player with crates
+    if (e.d.elite && !e.hunted && this.wave >= G.director.eliteCrateWave && Math.random() < 0.08) { G.director.eliteCrateWave = this.wave + 3; G.pickups.equipCrate(e.x, e.y, 'elite'); }
     G.equip.onKill(p);
     if (e === this.boss) this.boss = null;
   },
@@ -248,7 +249,8 @@ export const Game = {
     }
     p.eShieldT = 0;
     if (d <= 0) { p.hurtT = 0.3; Sound.shield(); return true; }
-    p.hp -= d; p.hurtT = 0.55; this.hurtFlash = 0.4; this.run.damageTaken += d;
+    this.run.damageTaken += Math.min(d, Math.max(0, p.hp));       // overkill doesn't count toward stats/achievements
+    p.hp -= d; p.hurtT = 0.55; this.hurtFlash = 0.4;
     p.vx += Math.cos(ang) * 260 * S.knockTaken; p.vy += Math.sin(ang) * 260 * S.knockTaken;
     this.shake(9); Sound.hurt();
     FX.hitBurst(p.x, p.y, ang, '#1fa6b8');
@@ -365,6 +367,7 @@ export const Game = {
     p.xpPulse = Math.max(0, p.xpPulse - dt * 4);
     p.xpShown += ((p.xp / p.xpNeed) - p.xpShown) * damp(10, dt);
     if (p.xpShown > p.xp / p.xpNeed + 0.02 && this.pending === 0) p.xpShown = p.xp / p.xpNeed;
-    if (playing && this.pending > 0) { this.levelFlash = 1; G.tutorial.done('upgrade'); G.ui.openLevelUp(); }
+    // re-check the live state: a crate or death earlier in this tick must not be replaced by a level-up
+    if (this.state === 'play' && this.pending > 0) { this.levelFlash = 1; G.tutorial.done('upgrade'); G.ui.openLevelUp(); }
   },
 };

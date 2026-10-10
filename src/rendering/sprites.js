@@ -1,6 +1,6 @@
 // Layered procedural characters and weapons (shared by gameplay, menus and the character designer).
 import { TAU, lerp } from "../core/util.js";
-import { rr, makeCanvas, ctx, R, SHADOW } from "../core/canvas.js";
+import { rr, makeCanvas, ctx, R } from "../core/canvas.js";
 import { GUN_SHAPES } from "../data/weapons.js";
 import { SKIN, ACCENTS } from "../data/cosmetics.js";
 export const OUTLINE = '#0b0b0f';
@@ -191,7 +191,7 @@ function cachedPose(key, opts, frame, flash, k, shadowBaked) {
 export function drawHumanCached(v, x, y, a, opts, key, phase, moving, flash, sx = 1, sy = 1, shadow = true) {
   const z = v.z, k = Math.max(0.5, Math.round(z * 2) / 2);
   const frame = moving ? 1 + (((Math.floor(phase / (Math.PI / 2)) % 4) + 4) % 4) : 0;   // 4 walk frames
-  const s = cachedPose(key, opts, frame, flash, k, shadow), sc = opts.scale || 1;
+  const s = cachedPose(key, opts, frame, flash, k, shadow);
   const m = z / k, c = Math.cos(a) * m, sn = Math.sin(a) * m;
   ctx.setTransform(c * sx, sn * sx, -sn * sy, c * sy, (x - v.cx) * z, (y - v.cy) * z);
   ctx.drawImage(s.c, -s.ox, -s.oy); R.draws++;

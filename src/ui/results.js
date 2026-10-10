@@ -55,7 +55,7 @@ export const Results = {
     drawIcons($('buildBody'));
   },
   gameOver(result) {
-    const prof = G.save.profile(), { run, res } = result || {}, g = G.game;
+    const prof = G.save.profile(), { run, res } = result || {};
     Music.set('menu');
     const training = run.mode === 'training';
     const lines = [['Survival time', fmtTime(run.time)], ['Wave reached', run.wave], ['Eliminations', run.kills.toLocaleString()], ['Damage dealt', Math.round(run.damage).toLocaleString()],

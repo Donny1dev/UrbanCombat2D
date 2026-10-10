@@ -1,5 +1,4 @@
 // Upgrade definitions. Each upgrade's apply(S, rank) is a pure function of its rank, so stats can always be rebuilt from scratch.
-import { pct } from '../core/util.js';
 // Each upgrade's `apply(S, r)` is a pure function of its rank, so stats can always be rebuilt from scratch.
 export const CATS = {
   ballistics: { name: 'Ballistics', col: '#ff9a1f' },

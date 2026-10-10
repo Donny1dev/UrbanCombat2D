@@ -1,5 +1,5 @@
 // Enemies: spawning, statuses, AI (steering + flow field), attacks, death, and drawing.
-import { TAU, TILE, clamp, lerp, damp, angDiff, dist2, rand, pick, vrand } from '../core/util.js';
+import { TAU, clamp, lerp, damp, angDiff, dist2, rand, pick, vrand } from '../core/util.js';
 import { G, W } from '../core/registry.js';
 import { ctx, R, GLOW, glow } from '../core/canvas.js';
 import { PAL, Settings } from '../core/settings.js';

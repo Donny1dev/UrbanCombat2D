@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "bench": "node tests/bench/run-bench.mjs",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "soak": "node tests/stability/soak.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.0",

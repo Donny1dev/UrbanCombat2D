@@ -1,6 +1,6 @@
 // Level-up cards (upgrades, evolutions, swaps; locks + rerolls) and equipment-crate cards.
 import { G, W } from '../core/registry.js';
-import { Sound, Music } from '../core/audio.js';
+import { Sound } from '../core/audio.js';
 import { mouse } from '../core/input.js';
 import { CATS, CAT_ORDER } from '../data/upgrades.js';
 import { WEAPONS, GUN_SHAPES } from '../data/weapons.js';
