@@ -1,0 +1,44 @@
+Soak: 45 game-minutes, then 50 death/redeploy cycles · http://localhost:4173/?debug
+  min  1 · wave 3 · lvl 6 · kills 80 · enemies 20 · bullets 4 · particles 109 · 0.048 ms/step · heap 4.02 MB
+  min  5 · wave 11 · lvl 21 · kills 917 · enemies 85 · bullets 35 · particles 293 · 0.148 ms/step · heap 4.95 MB
+  min 10 · wave 20 · lvl 50 · kills 4686 · enemies 146 · bullets 6 · particles 486 · 0.26 ms/step · heap 5.38 MB
+  min 15 · wave 30 · lvl 77 · kills 11387 · enemies 239 · bullets 8 · particles 1851 · 0.409 ms/step · heap 6.05 MB
+  min 20 · wave 3 · lvl 5 · kills 105 · enemies 18 · bullets 1 · particles 62 · 0.033 ms/step · heap 5.26 MB
+  min 25 · wave 13 · lvl 25 · kills 1084 · enemies 85 · bullets 13 · particles 322 · 0.221 ms/step · heap 5.52 MB
+  min 30 · wave 23 · lvl 44 · kills 3038 · enemies 170 · bullets 25 · particles 623 · 0.347 ms/step · heap 6.27 MB
+  min 35 · wave 33 · lvl 66 · kills 6848 · enemies 188 · bullets 35 · particles 503 · 0.368 ms/step · heap 6.07 MB
+  min 40 · wave 42 · lvl 87 · kills 11790 · enemies 187 · bullets 11 · particles 550 · 0.365 ms/step · heap 6.59 MB
+  min 45 · wave 52 · lvl 106 · kills 17664 · enemies 189 · bullets 22 · particles 1122 · 0.398 ms/step · heap 6.95 MB
+
+Long run (one row per 5 game-minutes):
+┌─────────┬─────┬──────┬─────┬───────┬─────────┬─────────┬───────────┬────────┬─────────┬─────────┬────────┬─────────┬────────┬─────┐
+│ (index) │ min │ wave │ lvl │ kills │ enemies │ bullets │ particles │ decals │ pickups │ hazards │ timers │ ms/step │ heapMB │ dom │
+├─────────┼─────┼──────┼─────┼───────┼─────────┼─────────┼───────────┼────────┼─────────┼─────────┼────────┼─────────┼────────┼─────┤
+│ 0       │ 1   │ 3    │ 6   │ 80    │ 20      │ 4       │ 109       │ 76     │ 38      │ 0       │ 0      │ 0.048   │ 4.02   │ 192 │
+│ 1       │ 5   │ 11   │ 21  │ 917   │ 85      │ 35      │ 293       │ 89     │ 253     │ 1       │ 0      │ 0.148   │ 4.95   │ 192 │
+│ 2       │ 10  │ 20   │ 50  │ 4686  │ 146     │ 6       │ 486       │ 260    │ 200     │ 0       │ 0      │ 0.26    │ 5.38   │ 192 │
+│ 3       │ 15  │ 30   │ 77  │ 11387 │ 239     │ 8       │ 1851      │ 260    │ 141     │ 2       │ 0      │ 0.409   │ 6.05   │ 192 │
+│ 4       │ 20  │ 3    │ 5   │ 105   │ 18      │ 1       │ 62        │ 61     │ 54      │ 0       │ 0      │ 0.033   │ 5.26   │ 272 │
+│ 5       │ 25  │ 13   │ 25  │ 1084  │ 85      │ 13      │ 322       │ 146    │ 37      │ 2       │ 0      │ 0.221   │ 5.52   │ 272 │
+│ 6       │ 30  │ 23   │ 44  │ 3038  │ 170     │ 25      │ 623       │ 150    │ 170     │ 3       │ 0      │ 0.347   │ 6.27   │ 272 │
+│ 7       │ 35  │ 33   │ 66  │ 6848  │ 188     │ 35      │ 503       │ 148    │ 160     │ 2       │ 0      │ 0.368   │ 6.07   │ 272 │
+│ 8       │ 40  │ 42   │ 87  │ 11790 │ 187     │ 11      │ 550       │ 148    │ 61      │ 2       │ 0      │ 0.365   │ 6.59   │ 272 │
+│ 9       │ 45  │ 52   │ 106 │ 17664 │ 189     │ 22      │ 1122      │ 148    │ 287     │ 1       │ 0      │ 0.398   │ 6.95   │ 272 │
+└─────────┴─────┴──────┴─────┴───────┴─────────┴─────────┴───────────┴────────┴─────────┴─────────┴────────┴─────────┴────────┴─────┘
+peaks: enemies 239 · bullets 58 · particles 1879 · pickups 313 · timers 0 · ms/step 0.427
+bot: 196 level-ups · 18 crates · 293 gear uses · 74 HP refills · 1 unexpected deaths (restarted)
+heap: 4.02 MB at min 1 → 6.95 MB at min 45 · wall time 54 s
+  bot death at wave 37: largest recent hit 57 HP from ? {"explosion":true,"elite":true} (had 105 HP)
+
+Restart cycles:
+┌─────────┬───────┬────────┬──────────┬───────────┬──────┐
+│ (index) │ cycle │ heapMB │ domNodes │ toastsDom │ runs │
+├─────────┼───────┼────────┼──────────┼───────────┼──────┤
+│ 0       │ 1     │ 6.43   │ 245      │ 0         │ 2    │
+│ 1       │ 10    │ 6.77   │ 245      │ 0         │ 11   │
+│ 2       │ 25    │ 6.6    │ 245      │ 0         │ 26   │
+│ 3       │ 50    │ 6.86   │ 245      │ 0         │ 51   │
+└─────────┴───────┴────────┴──────────┴───────────┴──────┘
+cycles wall time 3 s · save size 11514 bytes · history entries 51
+
+No page errors.

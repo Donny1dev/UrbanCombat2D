@@ -1,0 +1,1 @@
+globalThis.__T={Game,UI,get player(){return player},get enemies(){return enemies},Bullets,FX,Pickups,Map,applyOffer,checkSynergies,spawnEnemy,findReachableSpot,mouse,keys,ZOOM:()=>ZOOM};

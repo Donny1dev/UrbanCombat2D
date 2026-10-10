@@ -3,3 +3,4 @@ dist/
 test-results/
 playwright-report/
 .vite/
+tests/bench/v2-baseline/v2bench.html

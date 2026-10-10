@@ -1,0 +1,34 @@
+Soak: 20 game-minutes, then 50 death/redeploy cycles · http://localhost:4173/?debug
+  min  1 · wave 3 · lvl 6 · kills 85 · enemies 11 · bullets 0 · particles 66 · 0.051 ms/step · heap 3.75 MB
+  min  5 · wave 5 · lvl 11 · kills 311 · enemies 28 · bullets 3 · particles 314 · 0.067 ms/step · heap 4.69 MB
+  min 10 · wave 15 · lvl 36 · kills 2356 · enemies 116 · bullets 54 · particles 159 · 0.24 ms/step · heap 5.18 MB
+  min 15 · wave 25 · lvl 55 · kills 5573 · enemies 184 · bullets 72 · particles 545 · 0.451 ms/step · heap 5.73 MB
+  min 20 · wave 35 · lvl 80 · kills 11289 · enemies 185 · bullets 53 · particles 575 · 0.391 ms/step · heap 6.29 MB
+
+Long run (one row per 5 game-minutes):
+┌─────────┬─────┬──────┬─────┬───────┬─────────┬─────────┬───────────┬────────┬─────────┬─────────┬────────┬─────────┬────────┬─────┐
+│ (index) │ min │ wave │ lvl │ kills │ enemies │ bullets │ particles │ decals │ pickups │ hazards │ timers │ ms/step │ heapMB │ dom │
+├─────────┼─────┼──────┼─────┼───────┼─────────┼─────────┼───────────┼────────┼─────────┼─────────┼────────┼─────────┼────────┼─────┤
+│ 0       │ 1   │ 3    │ 6   │ 85    │ 11      │ 0       │ 66        │ 74     │ 38      │ 0       │ 0      │ 0.051   │ 3.75   │ 192 │
+│ 1       │ 5   │ 5    │ 11  │ 311   │ 28      │ 3       │ 314       │ 94     │ 229     │ 0       │ 0      │ 0.067   │ 4.69   │ 254 │
+│ 2       │ 10  │ 15   │ 36  │ 2356  │ 116     │ 54      │ 159       │ 163    │ 25      │ 3       │ 0      │ 0.24    │ 5.18   │ 254 │
+│ 3       │ 15  │ 25   │ 55  │ 5573  │ 184     │ 72      │ 545       │ 260    │ 284     │ 1       │ 0      │ 0.451   │ 5.73   │ 254 │
+│ 4       │ 20  │ 35   │ 80  │ 11289 │ 185     │ 53      │ 575       │ 256    │ 283     │ 3       │ 0      │ 0.391   │ 6.29   │ 254 │
+└─────────┴─────┴──────┴─────┴───────┴─────────┴─────────┴───────────┴────────┴─────────┴─────────┴────────┴─────────┴────────┴─────┘
+peaks: enemies 190 · bullets 124 · particles 1477 · pickups 284 · timers 0 · ms/step 0.451
+bot: 90 level-ups · 13 crates · 158 gear uses · 34 HP refills · 1 unexpected deaths (restarted)
+heap: 3.75 MB at min 1 → 6.29 MB at min 20 · wall time 21 s
+  bot death at wave 6: largest recent hit 33 HP from boss {"melee":true,"elite":true} (had 33 HP)
+
+Restart cycles:
+┌─────────┬───────┬────────┬──────────┬───────────┬──────┐
+│ (index) │ cycle │ heapMB │ domNodes │ toastsDom │ runs │
+├─────────┼───────┼────────┼──────────┼───────────┼──────┤
+│ 0       │ 1     │ 6.03   │ 245      │ 0         │ 2    │
+│ 1       │ 10    │ 6.36   │ 245      │ 0         │ 11   │
+│ 2       │ 25    │ 6.5    │ 245      │ 0         │ 26   │
+│ 3       │ 50    │ 6.56   │ 245      │ 0         │ 51   │
+└─────────┴───────┴────────┴──────────┴───────────┴──────┘
+cycles wall time 4 s · save size 11294 bytes · history entries 51
+
+No page errors.
